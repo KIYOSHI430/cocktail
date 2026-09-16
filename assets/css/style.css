@@ -317,6 +317,124 @@ main { max-width: 1180px; margin: 0 auto; padding: 22px 20px 60px; }
 
 .tag-cloud { display: flex; gap: 8px; flex-wrap: wrap; }
 
+/* ---------------- 检索栏升级 ---------------- */
+
+.filter-bar { align-items: flex-start; }
+.filter-bar .search { flex: 1 1 300px; max-width: 420px; }
+.toolbar-right { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.toolbar-right .select { width: auto; }
+.result-count { color: var(--text-2); font-size: 13px; margin: -6px 0 14px; }
+
+mark {
+  background: rgba(224, 169, 74, .28); color: var(--amber-2);
+  border-radius: 3px; padding: 0 2px;
+}
+
+/* ---------------- 已选材料条 ---------------- */
+
+.selected-bar {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  padding: 10px 12px; margin-bottom: 14px;
+  background: rgba(224, 169, 74, .06); border: 1px solid var(--line); border-radius: 12px;
+  min-height: 44px;
+}
+.sel-label { font-size: 13px; color: var(--text-2); }
+.sel-chip {
+  padding: 4px 10px; border-radius: 999px; font-size: 12px; cursor: pointer; font-family: inherit;
+  background: rgba(224, 169, 74, .18); border: 1px solid var(--amber); color: var(--amber-2);
+}
+.sel-chip:hover { background: rgba(224, 169, 74, .3); }
+
+.cat-block h3 { display: flex; align-items: center; gap: 8px; }
+.mini-btn {
+  padding: 2px 8px; border-radius: 999px; font-size: 11px; cursor: pointer; font-family: inherit;
+  background: transparent; border: 1px solid var(--line); color: var(--text-2);
+}
+.mini-btn:hover { color: var(--text); border-color: #55483e; }
+
+/* ---------------- 补货推荐 ---------------- */
+
+.restock {
+  background: rgba(126, 200, 169, .07); border: 1px solid #2f5a49;
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 18px;
+}
+.restock h3 { margin: 0 0 4px; font-size: 15px; }
+.restock-row {
+  display: flex; align-items: center; gap: 8px; padding: 5px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, .06); font-size: 13px;
+}
+.restock-row:last-child { border-bottom: none; }
+.restock-row b { color: var(--amber-2); }
+
+/* ---------------- 评论区 ---------------- */
+
+.comments { margin-top: 18px; }
+.comments .panel-head h2 { display: flex; align-items: center; gap: 8px; }
+.comments .count {
+  font-size: 12px; color: var(--text-2); background: var(--panel-2);
+  padding: 1px 9px; border-radius: 999px;
+}
+
+.comment-login {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 14px; margin-bottom: 16px; font-size: 14px; color: var(--text-2);
+  background: var(--panel-2); border: 1px dashed var(--line); border-radius: 12px;
+}
+
+.comment-form { margin-bottom: 18px; }
+.comment-form-row { display: flex; gap: 10px; align-items: flex-start; }
+.comment-form textarea { min-height: 62px; }
+.comment-form-foot {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  margin-top: 8px; flex-wrap: wrap;
+}
+.comment-form.reply { margin: 10px 0 4px; }
+
+.comment-list { list-style: none; padding: 0; margin: 0; }
+.comment { display: flex; gap: 10px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.comment.is-reply { border-bottom: none; padding: 10px 0 0; }
+.comment.is-hidden { opacity: .55; }
+.avatar {
+  flex: 0 0 36px; width: 36px; height: 36px; border-radius: 50%;
+  display: grid; place-items: center; color: #1b1410; font-weight: 700; font-size: 15px;
+}
+.avatar.sm { flex: 0 0 24px; width: 24px; height: 24px; font-size: 12px; display: inline-grid; vertical-align: middle; }
+.c-body { flex: 1; min-width: 0; }
+.c-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.c-head b { font-size: 14px; }
+.c-head time { font-size: 12px; color: var(--text-2); }
+.c-text { white-space: normal; word-break: break-word; }
+.c-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.c-op {
+  background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 12px; color: var(--text-2);
+}
+.c-op:hover { color: var(--amber-2); }
+.c-op.on { color: var(--amber); }
+.c-op.danger:hover { color: var(--red); }
+.reply-list { list-style: none; padding: 0 0 0 12px; margin: 8px 0 0; border-left: 2px solid var(--line); }
+.more-btn { margin-top: 14px; width: 100%; }
+.badge.role-badge { color: var(--amber-2); border-color: #6b5426; background: rgba(224, 169, 74, .12); }
+.c-cell { max-width: 320px; }
+
+/* ---------------- 权限说明 / 我的评论 ---------------- */
+
+.perm-list { list-style: none; padding: 0; margin: 10px 0; }
+.perm-list li { position: relative; padding-left: 18px; margin-bottom: 5px; color: var(--text-2); font-size: 13px; }
+.perm-list li::before { content: "·"; position: absolute; left: 6px; color: var(--amber); font-weight: 700; }
+
+.perm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 8px; }
+.perm-card {
+  padding: 14px 16px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line);
+}
+.perm-card.admin { border-color: #6b5426; background: rgba(224, 169, 74, .06); }
+.perm-card b { color: var(--amber-2); }
+
+.my-comments { list-style: none; padding: 0; margin: 0; }
+.my-comments li { padding: 10px 0; border-bottom: 1px dashed var(--line); font-size: 14px; }
+.my-comments li:last-child { border-bottom: none; }
+.my-comments span.mute-text { margin-left: 8px; }
+
 /* ---------------- 弹窗 / 提示 ---------------- */
 
 .modal-root { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; }
@@ -350,6 +468,8 @@ footer {
   .results-panel { position: static; max-height: none; }
   .hero { padding: 20px; }
   .hero h1 { font-size: 24px; }
+  .perm-grid { grid-template-columns: 1fr; }
+  .toolbar-right { margin-left: 0; width: 100%; }
 }
 
 @media (max-width: 640px) {

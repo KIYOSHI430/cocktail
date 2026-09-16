@@ -5,6 +5,7 @@
   "use strict";
 
   var KEY = "cocktail_app_v1";
+  var DATA_VERSION = 2;
   var state = null;
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -17,29 +18,91 @@
 
   /* ---------------- 初始化 ---------------- */
 
+  /** 把种子里的示例评论换算成真实时间 */
+  function seedComments() {
+    var now = Date.now();
+    return clone(window.SEED.comments || []).map(function (c) {
+      c.createdAt = new Date(now - (c.hoursAgo || 0) * 3600 * 1000).toISOString();
+      delete c.hoursAgo;
+      c.parentId = c.parentId || null;
+      c.likes = c.likes || [];
+      c.pinned = !!c.pinned;
+      c.hidden = false;
+      return c;
+    });
+  }
+
+  function normalizeUser(u) {
+    u.favorites = u.favorites || [];
+    u.myIngredients = u.myIngredients || [];
+    u.nickname = u.nickname || u.username;
+    u.intro = u.intro || "";
+    u.createdAt = u.createdAt || nowISO();
+    return u;
+  }
+
+  function normalizeRecipe(r) {
+    r.status = r.status || "approved";      // approved 公开 / pending 待审核 / hidden 已下架
+    r.author = r.author || "官方";
+    r.authorId = r.authorId || "u-admin";
+    r.createdAt = r.createdAt || "2026-01-01";
+    r.views = r.views || 0;
+    r.video = r.video || "";
+    r.videoName = r.videoName || "";
+    r.ingredients = r.ingredients || [];
+    r.steps = r.steps || [];
+    return r;
+  }
+
   function buildDefaultState() {
     var s = {
-      version: 1,
+      version: DATA_VERSION,
       ingredients: clone(window.SEED.ingredients),
-      recipes: clone(window.SEED.recipes).map(function (r) {
-        r.status = "approved";      // approved 公开 / pending 待审核 / hidden 已下架
-        r.author = r.author || "官方";
-        r.authorId = r.authorId || "u-admin";
-        r.createdAt = r.createdAt || "2026-01-01";
-        r.views = r.views || 0;
-        r.video = r.video || "";
-        r.videoName = r.videoName || "";
-        return r;
-      }),
-      users: clone(window.SEED.users).map(function (u) {
-        u.favorites = [];
-        u.myIngredients = [];
-        return u;
-      }),
+      recipes: clone(window.SEED.recipes).map(normalizeRecipe),
+      users: clone(window.SEED.users).map(normalizeUser),
+      comments: seedComments(),
       settings: clone(window.SEED.settings),
       sessionUserId: null,
       guestIngredients: []
     };
+    return s;
+  }
+
+  /**
+   * 老数据升级：保留用户自己的账号、配方、收藏，只补上新增的材料、配方、评论与新设置项。
+   * 这样你之前打开的页面不会因为升级而"看不到新内容"。
+   */
+  function migrate(s) {
+    if (!Array.isArray(s.ingredients)) s.ingredients = [];
+    if (!Array.isArray(s.recipes)) s.recipes = [];
+    if (!Array.isArray(s.users)) s.users = [];
+
+    var haveIng = {};
+    s.ingredients.forEach(function (i) { haveIng[i.id] = true; });
+    var addedIng = 0;
+    window.SEED.ingredients.forEach(function (i) {
+      if (!haveIng[i.id]) { s.ingredients.push(clone(i)); addedIng++; }
+    });
+
+    var haveRec = {};
+    s.recipes.forEach(function (r) { haveRec[r.id] = true; });
+    var addedRec = 0;
+    window.SEED.recipes.forEach(function (r) {
+      if (!haveRec[r.id]) { s.recipes.push(clone(r)); addedRec++; }
+    });
+
+    s.recipes.forEach(normalizeRecipe);
+    s.users.forEach(normalizeUser);
+
+    // 早期版本的管理员密码较弱，升级时换成新的强密码（如果你自己改过就不会动）
+    var admin = s.users.filter(function (u) { return u.username === "admin"; })[0];
+    if (admin && admin.password === "admin123") admin.password = "Cocktail@2026";
+
+    s.settings = Object.assign(clone(window.SEED.settings), s.settings || {});
+    if (!Array.isArray(s.comments)) s.comments = seedComments();
+
+    s.version = DATA_VERSION;
+    console.log("[数据升级] 新增材料 " + addedIng + " 种，新增配方 " + addedRec + " 款");
     return s;
   }
 
@@ -49,8 +112,12 @@
       if (raw) {
         var parsed = JSON.parse(raw);
         if (parsed && parsed.ingredients && parsed.recipes) {
-          state = parsed;
+          state = (parsed.version || 1) < DATA_VERSION ? migrate(parsed) : parsed;
           state.settings = Object.assign(clone(window.SEED.settings), state.settings || {});
+          state.comments = state.comments || [];
+          state.users.forEach(normalizeUser);
+          state.recipes.forEach(normalizeRecipe);
+          if ((parsed.version || 1) < DATA_VERSION) persist();
           return;
         }
       }
@@ -90,7 +157,8 @@
     if (exists) return { ok: false, msg: "该用户名已被注册" };
     var user = {
       id: newId("u"), username: username, password: password,
-      role: "user", createdAt: nowISO(), favorites: [], myIngredients: []
+      role: "user", nickname: username, intro: "",
+      createdAt: nowISO(), favorites: [], myIngredients: []
     };
     state.users.push(user);
     state.sessionUserId = user.id;
@@ -214,6 +282,9 @@
   function addRecipe(data) {
     var me = currentUser();
     if (!me) return { ok: false, msg: "请先登录" };
+    if (!can("publishRecipe")) {
+      return { ok: false, msg: me.role === "admin" ? "发布失败" : "管理员暂时关闭了用户自助发布配方" };
+    }
     if (!data.name || !String(data.name).trim()) return { ok: false, msg: "请填写酒名" };
     if (!data.ingredients || !data.ingredients.length) return { ok: false, msg: "至少添加一种材料" };
     var needReview = !!state.settings.needReview && me.role !== "admin";
@@ -260,6 +331,7 @@
     if (!me) return { ok: false, msg: "请先登录" };
     if (me.role !== "admin" && r.authorId !== me.id) return { ok: false, msg: "只能删除自己发布的配方" };
     state.recipes = state.recipes.filter(function (x) { return x.id !== id; });
+    state.comments = state.comments.filter(function (c) { return c.recipeId !== id; });   // 评论跟着配方一起清掉
     state.users.forEach(function (u) {
       u.favorites = (u.favorites || []).filter(function (fid) { return fid !== id; });
     });
@@ -387,6 +459,339 @@
 
   /* ---------------- 站点设置 / 数据备份 ---------------- */
 
+  /* ================= 权限体系 =================
+     角色只有两种，界限很清楚：
+       普通用户 user ：浏览、收藏、勾选材料、发布配方、推荐/补充视频、发表评论、管理自己的内容
+       管理员   admin：在上面全部基础上，增加材料库、配方审核、评论管理、用户管理、站点设置
+     访客 guest：只能浏览，做任何写操作都会被提示先登录。  */
+
+  var PERMISSIONS = {
+    guest: ["browse"],
+    user: [
+      "browse", "favorite",
+      "publishRecipe", "editOwnRecipe", "deleteOwnRecipe",
+      "suggestVideo", "comment", "deleteOwnComment"
+    ]
+  };
+
+  function can(action) {
+    var u = currentUser();
+    var role = u ? u.role : "guest";
+    if (role === "admin") return true;               // 管理员不受开关限制
+    var allowed = PERMISSIONS[role] || PERMISSIONS.guest;
+    if (allowed.indexOf(action) < 0) return false;
+    var s = state.settings;
+    if (action === "publishRecipe" && !s.allowUserPublish) return false;
+    if (action === "suggestVideo" && !s.allowUserVideo) return false;
+    if (action === "comment" && !s.allowUserComment) return false;
+    if (action === "editOwnRecipe" && !s.allowUserEditOwnRecipe) return false;
+    if (action === "deleteOwnRecipe" && !s.allowUserDeleteOwnRecipe) return false;
+    if (action === "deleteOwnComment" && !s.allowUserDeleteOwnComment) return false;
+    return true;
+  }
+
+  function roleLabel() {
+    var u = currentUser();
+    if (!u) return "游客";
+    return u.role === "admin" ? "管理员" : "普通用户";
+  }
+
+  function permissionList() {
+    var u = currentUser();
+    var role = u ? u.role : "guest";
+    var base = ["浏览配方库、材料库与评论区"];
+    if (role === "admin") {
+      return base.concat([
+        "新增 / 编辑 / 删除任何材料",
+        "审核、下架、删除任何配方",
+        "管理全部评论（置顶、隐藏、删除）",
+        "管理用户与管理员权限",
+        "修改站点设置、备份与恢复数据"
+      ]);
+    }
+    var list = base;
+    if (role === "guest") return list.concat(["登录后可以发布配方、评论、收藏"]);
+    list = list.concat(["发布经典 / 特调配方", "给任何配方推荐或补充教学视频", "发表评论、回复、点赞"]);
+    if (state.settings.allowUserEditOwnRecipe) list.push("编辑自己发布的配方");
+    if (state.settings.allowUserDeleteOwnRecipe) list.push("删除自己发布的配方");
+    if (state.settings.allowUserDeleteOwnComment) list.push("删除自己的评论");
+    list.push("不能修改材料库、他人的配方、他人的评论与站点设置");
+    return list;
+  }
+
+  /* ================= 评论系统 ================= */
+
+  function decorateComment(c) {
+    var me = currentUser();
+    var likes = c.likes || [];
+    return {
+      id: c.id,
+      recipeId: c.recipeId,
+      userId: c.userId,
+      username: c.username,
+      nickname: c.nickname || c.username,
+      content: c.content,
+      createdAt: c.createdAt,
+      parentId: c.parentId || null,
+      pinned: !!c.pinned,
+      hidden: !!c.hidden,
+      isAdmin: (state.users.filter(function (u) { return u.id === c.userId; })[0] || {}).role === "admin",
+      likeCount: likes.length,
+      liked: !!(me && likes.indexOf(me.id) >= 0),
+      mine: !!(me && me.id === c.userId)
+    };
+  }
+
+  /** 某款配方下的评论（含二级回复），管理员能看到被隐藏的内容 */
+  function listComments(recipeId, options) {
+    options = options || {};
+    var sort = options.sort === "new" ? "new" : "hot";
+    var me = currentUser();
+    var all = state.comments.filter(function (c) {
+      if (c.recipeId !== recipeId) return false;
+      if (!c.hidden) return true;
+      if (!me) return false;
+      return me.role === "admin" || c.userId === me.id;
+    });
+    var tops = all.filter(function (c) { return !c.parentId; });
+    function repliesOf(id) {
+      return all.filter(function (c) { return c.parentId === id; })
+        .sort(function (a, b) { return String(a.createdAt).localeCompare(String(b.createdAt)); })
+        .map(decorateComment);
+    }
+    tops.sort(function (a, b) {
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+      if (sort === "hot") {
+        var d = (b.likes || []).length - (a.likes || []).length;
+        if (d) return d;
+      }
+      return String(b.createdAt).localeCompare(String(a.createdAt));
+    });
+    return tops.map(function (c) {
+      var item = decorateComment(c);
+      item.replies = repliesOf(c.id);
+      return item;
+    });
+  }
+
+  function countComments(recipeId) {
+    var me = currentUser();
+    return state.comments.filter(function (c) {
+      if (c.recipeId !== recipeId) return false;
+      if (!c.hidden) return true;
+      return !!(me && (me.role === "admin" || c.userId === me.id));
+    }).length;
+  }
+
+  function addComment(recipeId, content, parentId) {
+    var me = currentUser();
+    if (!me) return { ok: false, msg: "请先登录后再发表评论" };
+    if (!can("comment")) return { ok: false, msg: "管理员暂时关闭了评论功能" };
+    content = String(content || "").trim();
+    if (!content) return { ok: false, msg: "评论内容不能为空" };
+    if (content.length > 500) return { ok: false, msg: "评论最多 500 个字" };
+    if (!getRecipe(recipeId)) return { ok: false, msg: "配方不存在" };
+    if (parentId) {
+      var parent = state.comments.filter(function (c) { return c.id === parentId; })[0];
+      if (!parent) return { ok: false, msg: "要回复的评论不存在" };
+      if (parent.parentId) parentId = parent.parentId;   // 只做两级，回复的回复归到同一层
+    }
+    var c = {
+      id: newId("c"), recipeId: recipeId, userId: me.id, username: me.username,
+      nickname: me.nickname || me.username, content: content,
+      createdAt: new Date().toISOString(), parentId: parentId || null,
+      likes: [], pinned: false, hidden: false
+    };
+    state.comments.push(c);
+    persist();
+    return { ok: true, comment: decorateComment(c) };
+  }
+
+  function deleteComment(id) {
+    var me = currentUser();
+    if (!me) return { ok: false, msg: "请先登录" };
+    var target = state.comments.filter(function (c) { return c.id === id; })[0];
+    if (!target) return { ok: false, msg: "评论不存在" };
+    if (me.role !== "admin") {
+      if (target.userId !== me.id) return { ok: false, msg: "只能删除自己的评论" };
+      if (!can("deleteOwnComment")) return { ok: false, msg: "管理员关闭了删除自己评论的权限" };
+    }
+    // 删主楼时连同回复一起删
+    state.comments = state.comments.filter(function (c) { return c.id !== id && c.parentId !== id; });
+    persist();
+    return { ok: true };
+  }
+
+  function toggleCommentLike(id) {
+    var me = currentUser();
+    if (!me) return { ok: false, msg: "登录后才能点赞" };
+    var c = state.comments.filter(function (x) { return x.id === id; })[0];
+    if (!c) return { ok: false, msg: "评论不存在" };
+    c.likes = c.likes || [];
+    var i = c.likes.indexOf(me.id);
+    if (i >= 0) c.likes.splice(i, 1); else c.likes.push(me.id);
+    persist();
+    return { ok: true, liked: i < 0, count: c.likes.length };
+  }
+
+  function setCommentFlags(id, patch) {
+    var me = currentUser();
+    if (!me || me.role !== "admin") return { ok: false, msg: "只有管理员可以操作" };
+    var c = state.comments.filter(function (x) { return x.id === id; })[0];
+    if (!c) return { ok: false, msg: "评论不存在" };
+    if (typeof patch.pinned === "boolean") c.pinned = patch.pinned;
+    if (typeof patch.hidden === "boolean") c.hidden = patch.hidden;
+    persist();
+    return { ok: true };
+  }
+
+  /** 后台评论管理用的全量列表 */
+  function adminComments(options) {
+    options = options || {};
+    var q = String(options.q || "").trim().toLowerCase();
+    var list = state.comments.slice();
+    if (options.onlyHidden) list = list.filter(function (c) { return c.hidden; });
+    if (q) {
+      list = list.filter(function (c) {
+        var r = getRecipe(c.recipeId);
+        var hay = [c.content, c.username, c.nickname, r ? r.name : ""].join(" ").toLowerCase();
+        return hay.indexOf(q) >= 0;
+      });
+    }
+    list.sort(function (a, b) { return String(b.createdAt).localeCompare(String(a.createdAt)); });
+    return list.map(function (c) {
+      var r = getRecipe(c.recipeId);
+      var item = decorateComment(c);
+      item.recipeName = r ? r.name : "(配方已删除)";
+      item.replyCount = state.comments.filter(function (x) { return x.parentId === c.id; }).length;
+      return item;
+    });
+  }
+
+  function commentStats() {
+    var today = new Date().toISOString().slice(0, 10);
+    return {
+      total: state.comments.length,
+      today: state.comments.filter(function (c) { return String(c.createdAt).slice(0, 10) === today; }).length,
+      hidden: state.comments.filter(function (c) { return c.hidden; }).length,
+      pinned: state.comments.filter(function (c) { return c.pinned; }).length,
+      users: Object.keys(state.comments.reduce(function (acc, c) { acc[c.userId] = 1; return acc; }, {})).length
+    };
+  }
+
+  /* ================= 检索 ================= */
+
+  /** 材料检索：支持名称、英文别名、分类，多个关键词用空格分隔 */
+  function searchIngredients(q, cat) {
+    var terms = String(q || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+    return state.ingredients.filter(function (i) {
+      if (cat && cat !== "全部" && i.cat !== cat) return false;
+      if (!terms.length) return true;
+      var hay = [i.name, i.aka, i.cat, i.emoji].join(" ").toLowerCase();
+      return terms.every(function (t) { return hay.indexOf(t) >= 0; });
+    });
+  }
+
+  /** 配方检索：关键词（空格分词）+ 分类/基酒/酒感/收藏/只看能调 + 多种排序 */
+  function searchRecipes(options) {
+    options = options || {};
+    var terms = String(options.q || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+    var me = currentUser();
+    var favs = me ? (me.favorites || []) : [];
+    var mine = (options.myIngredients || []).slice();
+    var owned = {};
+    mine.forEach(function (id) { owned[id] = true; });
+
+    var list = visibleRecipes().filter(function (r) { return r.status !== "pending"; });
+
+    if (options.type && options.type !== "all") list = list.filter(function (r) { return r.type === options.type; });
+    if (options.abv && options.abv !== "all") list = list.filter(function (r) { return r.abv === options.abv; });
+    if (options.base && options.base !== "all") {
+      list = list.filter(function (r) {
+        return r.ingredients.some(function (x) {
+          var ing = getIngredient(x.id);
+          return x.id === options.base || (ing && ing.aka && ing.aka.toLowerCase() === String(options.base).toLowerCase());
+        });
+      });
+    }
+    if (options.onlyFav) list = list.filter(function (r) { return favs.indexOf(r.id) >= 0; });
+    if (options.authorId) list = list.filter(function (r) { return r.authorId === options.authorId; });
+
+    if (terms.length) {
+      list = list.filter(function (r) {
+        var ingText = r.ingredients.map(function (x) { return ingredientName(x.id); }).join(" ");
+        var hay = [r.name, r.en, r.desc, r.author, r.glass, r.abv, ingText].join(" ").toLowerCase();
+        return terms.every(function (t) { return hay.indexOf(t) >= 0; });
+      });
+    }
+
+    // 计算差缺情况（勾了材料才有意义）
+    list = list.map(function (r) {
+      var need = r.ingredients.filter(function (x) {
+        var ing = getIngredient(x.id);
+        return !ing || !ing.basic;
+      });
+      var missing = need.filter(function (x) { return !owned[x.id] && !x.optional; }).map(function (x) { return x.id; });
+      var copy = Object.assign({}, r);
+      copy._needCount = need.length;
+      // 一种材料都没勾选时不要显示「差 X 种」，否则每款酒都像缺很多东西
+      copy._missing = mine.length ? missing : null;
+      return copy;
+    });
+
+    if (options.onlyMakeable && mine.length) {
+      list = list.filter(function (r) { return r._missing.length === 0; });
+    }
+
+    var sort = options.sort || "hot";
+    list.sort(function (a, b) {
+      if (sort === "new") return String(b.createdAt).localeCompare(String(a.createdAt));
+      if (sort === "name") return a.name.localeCompare(b.name, "zh");
+      if (sort === "easy") return a._needCount - b._needCount;
+      if (sort === "match" && mine.length) {
+        if (a._missing.length !== b._missing.length) return a._missing.length - b._missing.length;
+        return (b.views || 0) - (a.views || 0);
+      }
+      return (b.views || 0) - (a.views || 0);
+    });
+    return list;
+  }
+
+  /** 统计配方库里做基酒用的材料（用于筛选下拉） */
+  function baseSpirits() {
+    var baseCat = "基酒";
+    var used = {};
+    state.recipes.forEach(function (r) {
+      r.ingredients.forEach(function (x) {
+        var ing = getIngredient(x.id);
+        if (ing && ing.cat === baseCat) used[x.id] = (used[x.id] || 0) + 1;
+      });
+    });
+    return Object.keys(used).map(function (id) {
+      return { id: id, name: ingredientName(id), count: used[id] };
+    }).sort(function (a, b) { return b.count - a.count; });
+  }
+
+  /** 补货推荐：再买哪几种材料，能解锁最多新酒 */
+  function suggestRestock(selectedIds, limit) {
+    var buckets = matchRecipes(selectedIds, { maxMissing: 3 });
+    var score = {};
+    buckets.miss1.concat(buckets.miss2, buckets.miss3).forEach(function (item) {
+      item.missing.forEach(function (x) {
+        var rec = score[x.id] || (score[x.id] = { id: x.id, name: ingredientName(x.id), direct: 0, total: 0, recipes: [] });
+        if (item.missing.length === 1) rec.direct++;
+        rec.total++;
+        if (rec.recipes.length < 3) rec.recipes.push(item.recipe.name);
+      });
+    });
+    var arr = Object.keys(score).map(function (k) { return score[k]; });
+    arr.sort(function (a, b) {
+      if (b.direct !== a.direct) return b.direct - a.direct;
+      return b.total - a.total;
+    });
+    return arr.slice(0, limit || 6);
+  }
+
   function getSettings() { return state.settings; }
 
   function updateSettings(patch) {
@@ -404,8 +809,11 @@
       if (!parsed || !parsed.ingredients || !parsed.recipes || !parsed.users) {
         return { ok: false, msg: "文件结构不对，缺少必要字段" };
       }
-      state = parsed;
+      state = (parsed.version || 1) < DATA_VERSION ? migrate(parsed) : parsed;
       state.settings = Object.assign(clone(window.SEED.settings), state.settings || {});
+      state.comments = state.comments || [];
+      state.users.forEach(normalizeUser);
+      state.recipes.forEach(normalizeRecipe);
       state.sessionUserId = null;
       persist();
       return { ok: true };
@@ -462,6 +870,27 @@
 
     // 匹配
     matchRecipes: matchRecipes,
+    suggestRestock: suggestRestock,
+
+    // 权限
+    can: can,
+    roleLabel: roleLabel,
+    permissionList: permissionList,
+
+    // 评论
+    listComments: listComments,
+    countComments: countComments,
+    addComment: addComment,
+    deleteComment: deleteComment,
+    toggleCommentLike: toggleCommentLike,
+    setCommentFlags: setCommentFlags,
+    adminComments: adminComments,
+    commentStats: commentStats,
+
+    // 检索
+    searchRecipes: searchRecipes,
+    searchIngredients: searchIngredients,
+    baseSpirits: baseSpirits,
 
     // 设置与数据
     getSettings: getSettings,

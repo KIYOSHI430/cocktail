@@ -25,6 +25,20 @@ window.SEED = {
     { id: "sake",       name: "清酒",         cat: "基酒", emoji: "🍶", aka: "Sake" },
     { id: "soju",       name: "烧酒",         cat: "基酒", emoji: "🍶", aka: "Soju" },
     { id: "baijiu",     name: "白酒",         cat: "基酒", emoji: "🏮", aka: "Baijiu" },
+    { id: "golden-rum", name: "金朗姆酒",     cat: "基酒", emoji: "🥇", aka: "Golden Rum" },
+    { id: "aged-rum",   name: "陈年朗姆酒",   cat: "基酒", emoji: "🛢️", aka: "Aged Rum" },
+    { id: "overproof-rum", name: "高度朗姆 151", cat: "基酒", emoji: "🔥", aka: "Overproof Rum" },
+    { id: "pisco",      name: "皮斯科",       cat: "基酒", emoji: "🍇", aka: "Pisco" },
+    { id: "armagnac",   name: "雅文邑",       cat: "基酒", emoji: "🍇", aka: "Armagnac" },
+    { id: "canadian-whisky", name: "加拿大威士忌", cat: "基酒", emoji: "🍁", aka: "Canadian Whisky" },
+    { id: "japanese-whisky", name: "日本威士忌",   cat: "基酒", emoji: "🗾", aka: "Japanese Whisky" },
+    { id: "irish-whiskey",   name: "爱尔兰威士忌", cat: "基酒", emoji: "🍀", aka: "Irish Whiskey" },
+    { id: "sherry",     name: "雪莉酒",       cat: "基酒", emoji: "🍷", aka: "Sherry" },
+    { id: "port",       name: "波特酒",       cat: "基酒", emoji: "🍷", aka: "Port" },
+    { id: "red-wine",   name: "红葡萄酒",     cat: "基酒", emoji: "🍷", aka: "Red Wine" },
+    { id: "white-wine", name: "白葡萄酒",     cat: "基酒", emoji: "🥂", aka: "White Wine" },
+    { id: "plum-wine",  name: "梅酒",         cat: "基酒", emoji: "🫐", aka: "Umeshu" },
+    { id: "rice-wine",  name: "黄酒 / 米酒",  cat: "基酒", emoji: "🍚", aka: "Rice Wine" },
 
     // 利口酒
     { id: "cointreau",  name: "君度橙酒",     cat: "利口酒", emoji: "🍊", aka: "Cointreau" },
@@ -43,6 +57,23 @@ window.SEED = {
     { id: "midori",     name: "蜜多丽蜜瓜酒", cat: "利口酒", emoji: "🍈", aka: "Midori" },
     { id: "malibu",     name: "椰香朗姆酒",   cat: "利口酒", emoji: "🥥", aka: "Malibu" },
     { id: "absinthe",   name: "苦艾酒",       cat: "利口酒", emoji: "🧚", aka: "Absinthe" },
+    { id: "grand-marnier", name: "柑曼怡",    cat: "利口酒", emoji: "🍊", aka: "Grand Marnier" },
+    { id: "maraschino", name: "黑樱桃利口酒", cat: "利口酒", emoji: "🍒", aka: "Maraschino" },
+    { id: "chambord",   name: "香波黑莓利口酒", cat: "利口酒", emoji: "🫐", aka: "Chambord" },
+    { id: "chartreuse", name: "荨麻酒（绿）", cat: "利口酒", emoji: "🌿", aka: "Chartreuse" },
+    { id: "benedictine", name: "廊酒",        cat: "利口酒", emoji: "🏛️", aka: "Bénédictine" },
+    { id: "drambuie",   name: "杜林标",       cat: "利口酒", emoji: "🥃", aka: "Drambuie" },
+    { id: "frangelico", name: "榛子利口酒",   cat: "利口酒", emoji: "🌰", aka: "Frangelico" },
+    { id: "banana-liqueur", name: "香蕉利口酒", cat: "利口酒", emoji: "🍌", aka: "Crème de Banane" },
+    { id: "vanilla-liqueur", name: "香草利口酒", cat: "利口酒", emoji: "🍦", aka: "Vanilla Liqueur" },
+    { id: "galliano",   name: "加利安奴",     cat: "利口酒", emoji: "🍮", aka: "Galliano" },
+    { id: "creme-de-menthe", name: "薄荷利口酒", cat: "利口酒", emoji: "🌱", aka: "Crème de Menthe" },
+    { id: "creme-de-cacao-dark", name: "深色可可利口酒", cat: "利口酒", emoji: "🍫", aka: "Dark Crème de Cacao" },
+    { id: "creme-de-violette", name: "紫罗兰利口酒", cat: "利口酒", emoji: "💜", aka: "Crème de Violette" },
+    { id: "pimms",      name: "皮姆酒",       cat: "利口酒", emoji: "🍓", aka: "Pimm's" },
+    { id: "limoncello", name: "柠檬切罗",     cat: "利口酒", emoji: "🍋", aka: "Limoncello" },
+    { id: "lillet",     name: "利莱白",       cat: "利口酒", emoji: "🍾", aka: "Lillet Blanc" },
+    { id: "amaro",      name: "阿玛罗苦酒",   cat: "利口酒", emoji: "🥀", aka: "Amaro" },
 
     // 果汁与饮料
     { id: "lime-juice",     name: "青柠汁",   cat: "果汁与饮料", emoji: "🟢", aka: "Lime Juice" },
@@ -61,6 +92,18 @@ window.SEED = {
     { id: "espresso",   name: "浓缩咖啡",     cat: "果汁与饮料", emoji: "☕", aka: "Espresso" },
     { id: "milk",       name: "牛奶",         cat: "果汁与饮料", emoji: "🥛", aka: "Milk" },
     { id: "cream",      name: "淡奶油",       cat: "果汁与饮料", emoji: "🍦", aka: "Cream" },
+    { id: "condensed-milk", name: "炼乳",     cat: "果汁与饮料", emoji: "🥛", aka: "Condensed Milk" },
+    { id: "coconut-water",  name: "椰子水",   cat: "果汁与饮料", emoji: "🥥", aka: "Coconut Water" },
+    { id: "passionfruit-juice", name: "百香果汁", cat: "果汁与饮料", emoji: "🟠", aka: "Passion Fruit Juice" },
+    { id: "mango-juice",   name: "芒果汁",    cat: "果汁与饮料", emoji: "🥭", aka: "Mango Juice" },
+    { id: "watermelon-juice", name: "西瓜汁", cat: "果汁与饮料", emoji: "🍉", aka: "Watermelon Juice" },
+    { id: "apple-juice",   name: "苹果汁",    cat: "果汁与饮料", emoji: "🍎", aka: "Apple Juice" },
+    { id: "grape-juice",   name: "葡萄汁",    cat: "果汁与饮料", emoji: "🍇", aka: "Grape Juice" },
+    { id: "peach-juice",   name: "桃子汁",    cat: "果汁与饮料", emoji: "🍑", aka: "Peach Juice" },
+    { id: "ginger-ale",    name: "干姜水",    cat: "果汁与饮料", emoji: "🫚", aka: "Ginger Ale" },
+    { id: "bitter-lemon",  name: "苦柠水",    cat: "果汁与饮料", emoji: "🍋", aka: "Bitter Lemon" },
+    { id: "sparkling-water", name: "气泡水",  cat: "果汁与饮料", emoji: "🫧", aka: "Sparkling Water" },
+    { id: "beer",          name: "啤酒",      cat: "果汁与饮料", emoji: "🍺", aka: "Beer" },
 
     // 糖浆与调味
     { id: "simple-syrup", name: "糖浆",       cat: "糖浆与调味", emoji: "🍯", aka: "Simple Syrup" },
@@ -75,6 +118,24 @@ window.SEED = {
     { id: "worcestershire", name: "伍斯特酱", cat: "糖浆与调味", emoji: "🧴", aka: "Worcestershire" },
     { id: "tabasco",    name: "塔巴斯科辣酱", cat: "糖浆与调味", emoji: "🌶️", aka: "Tabasco" },
     { id: "egg-white",  name: "蛋清",         cat: "糖浆与调味", emoji: "🥚", aka: "Egg White" },
+    { id: "egg-yolk",   name: "蛋黄",         cat: "糖浆与调味", emoji: "🍳", aka: "Egg Yolk" },
+    { id: "vanilla-syrup",  name: "香草糖浆", cat: "糖浆与调味", emoji: "🍦", aka: "Vanilla Syrup" },
+    { id: "ginger-syrup",   name: "姜糖浆",   cat: "糖浆与调味", emoji: "🫚", aka: "Ginger Syrup" },
+    { id: "cinnamon-syrup", name: "肉桂糖浆", cat: "糖浆与调味", emoji: "🪵", aka: "Cinnamon Syrup" },
+    { id: "caramel-syrup",  name: "焦糖糖浆", cat: "糖浆与调味", emoji: "🍯", aka: "Caramel Syrup" },
+    { id: "rose-syrup",     name: "玫瑰糖浆", cat: "糖浆与调味", emoji: "🌹", aka: "Rose Syrup" },
+    { id: "elderflower-syrup", name: "接骨木花糖浆", cat: "糖浆与调味", emoji: "🌸", aka: "Elderflower Syrup" },
+    { id: "passionfruit-syrup", name: "百香果糖浆", cat: "糖浆与调味", emoji: "🟠", aka: "Passion Fruit Syrup" },
+    { id: "lychee-syrup",   name: "荔枝糖浆", cat: "糖浆与调味", emoji: "🫒", aka: "Lychee Syrup" },
+    { id: "coconut-syrup",  name: "椰子糖浆", cat: "糖浆与调味", emoji: "🥥", aka: "Coconut Syrup" },
+    { id: "raspberry-syrup", name: "覆盆子糖浆", cat: "糖浆与调味", emoji: "🫐", aka: "Raspberry Syrup" },
+    { id: "orange-bitters", name: "橙味苦精", cat: "糖浆与调味", emoji: "🍊", aka: "Orange Bitters" },
+    { id: "celery-bitters", name: "芹菜苦精", cat: "糖浆与调味", emoji: "🥬", aka: "Celery Bitters" },
+    { id: "cinnamon-powder", name: "肉桂粉",  cat: "糖浆与调味", emoji: "🪵", aka: "Cinnamon" },
+    { id: "cocoa-powder",   name: "可可粉",   cat: "糖浆与调味", emoji: "🍫", aka: "Cocoa Powder" },
+    { id: "vanilla-extract", name: "香草精",  cat: "糖浆与调味", emoji: "🌼", aka: "Vanilla Extract" },
+    { id: "clove",      name: "丁香",         cat: "糖浆与调味", emoji: "🟤", aka: "Clove" },
+    { id: "chili",      name: "辣椒",         cat: "糖浆与调味", emoji: "🌶️", aka: "Chili" },
 
     // 新鲜水果
     { id: "lime",       name: "青柠",         cat: "新鲜水果", emoji: "🍋‍🟩", aka: "Lime" },
@@ -88,6 +149,21 @@ window.SEED = {
     { id: "grape",      name: "青提",         cat: "新鲜水果", emoji: "🍇", aka: "Green Grape" },
     { id: "yuzu",       name: "柚子 / 柚子汁", cat: "新鲜水果", emoji: "🍈", aka: "Yuzu" },
     { id: "longan",     name: "桂圆（龙眼）", cat: "新鲜水果", emoji: "🟤", aka: "Longan" },
+    { id: "passionfruit", name: "百香果",     cat: "新鲜水果", emoji: "🟠", aka: "Passion Fruit" },
+    { id: "mango",      name: "芒果",         cat: "新鲜水果", emoji: "🥭", aka: "Mango" },
+    { id: "watermelon", name: "西瓜",         cat: "新鲜水果", emoji: "🍉", aka: "Watermelon" },
+    { id: "apple",      name: "苹果",         cat: "新鲜水果", emoji: "🍎", aka: "Apple" },
+    { id: "peach-fruit", name: "桃子",        cat: "新鲜水果", emoji: "🍑", aka: "Peach" },
+    { id: "pear",       name: "梨",           cat: "新鲜水果", emoji: "🍐", aka: "Pear" },
+    { id: "blueberry",  name: "蓝莓",         cat: "新鲜水果", emoji: "🫐", aka: "Blueberry" },
+    { id: "raspberry",  name: "覆盆子",       cat: "新鲜水果", emoji: "🍓", aka: "Raspberry" },
+    { id: "blackberry", name: "黑莓",         cat: "新鲜水果", emoji: "🫐", aka: "Blackberry" },
+    { id: "fig",        name: "无花果",       cat: "新鲜水果", emoji: "🍈", aka: "Fig" },
+    { id: "guava",      name: "番石榴",       cat: "新鲜水果", emoji: "🍐", aka: "Guava" },
+    { id: "kiwi",       name: "猕猴桃",       cat: "新鲜水果", emoji: "🥝", aka: "Kiwi" },
+    { id: "hawthorn",   name: "山楂",         cat: "新鲜水果", emoji: "🔴", aka: "Hawthorn" },
+    { id: "goji",       name: "枸杞",         cat: "新鲜水果", emoji: "🔴", aka: "Goji Berry" },
+    { id: "plum",       name: "青梅 / 话梅",  cat: "新鲜水果", emoji: "🟢", aka: "Green Plum" },
 
     // 香草与装饰
     { id: "mint",       name: "薄荷",         cat: "香草与装饰", emoji: "🌿", aka: "Mint" },
@@ -100,6 +176,14 @@ window.SEED = {
     { id: "osmanthus",  name: "桂花",         cat: "香草与装饰", emoji: "🌼", aka: "Osmanthus" },
     { id: "matcha",     name: "抹茶粉",       cat: "香草与装饰", emoji: "🍵", aka: "Matcha" },
     { id: "coffee-bean", name: "咖啡豆",      cat: "香草与装饰", emoji: "🫘", aka: "Coffee Bean" },
+    { id: "lemon-grass", name: "柠檬草",      cat: "香草与装饰", emoji: "🌾", aka: "Lemongrass" },
+    { id: "shiso",      name: "紫苏叶",       cat: "香草与装饰", emoji: "🍃", aka: "Shiso" },
+    { id: "thyme",      name: "百里香",       cat: "香草与装饰", emoji: "🌿", aka: "Thyme" },
+    { id: "sage",       name: "鼠尾草",       cat: "香草与装饰", emoji: "🌿", aka: "Sage" },
+    { id: "cilantro",   name: "香菜",         cat: "香草与装饰", emoji: "🌿", aka: "Cilantro" },
+    { id: "star-anise", name: "八角",         cat: "香草与装饰", emoji: "⭐", aka: "Star Anise" },
+    { id: "cinnamon-stick", name: "肉桂棒",   cat: "香草与装饰", emoji: "🪵", aka: "Cinnamon Stick" },
+    { id: "edible-flower", name: "食用花瓣",  cat: "香草与装饰", emoji: "🌺", aka: "Edible Flower" },
 
     // 其他
     { id: "ice",        name: "冰块",         cat: "其他", emoji: "🧊", aka: "Ice", basic: true },
@@ -357,6 +441,464 @@ window.SEED = {
       steps: ["子弹杯中先倒咖啡利口酒", "沿勺背缓慢倒百利甜", "最上层沿勺背倒君度", "三层分明，一口喝完"]
     },
 
+    /* ---------- 更多经典鸡尾酒（扩展库） ---------- */
+    {
+      id: "whisky-highball", name: "威士忌高球", en: "Whisky Highball", type: "classic", emoji: "🥃", color: "#d9b26a",
+      glass: "高球杯", abv: "低", desc: "日本居酒屋的招牌喝法，气泡把威士忌的香气拉得又长又清爽。",
+      ingredients: [
+        { id: "bourbon", amount: "45 ml" }, { id: "soda-water", amount: "135 ml" },
+        { id: "lemon", amount: "1 片皮", optional: true }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["高球杯加满冰，搅拌冰杯后倒掉融水", "倒入威士忌", "沿吧勺缓慢注入冰镇苏打水", "只搅一下，保留气泡"]
+    },
+    {
+      id: "mint-julep", name: "薄荷朱莉普", en: "Mint Julep", type: "classic", emoji: "🌿", color: "#9ed4a5",
+      glass: "银杯", abv: "高", desc: "肯塔基赛马会的官方饮品，碎冰 + 薄荷 + 波本。",
+      ingredients: [
+        { id: "bourbon", amount: "60 ml" }, { id: "mint", amount: "8 片" },
+        { id: "sugar", amount: "2 茶匙" }, { id: "ice", amount: "碎冰满杯" }
+      ],
+      steps: ["杯中放薄荷与糖，轻压出香", "加碎冰至半杯，倒入一半威士忌搅拌", "再加碎冰与剩下的威士忌", "插一大束薄荷，做成小花园"]
+    },
+    {
+      id: "sazerac", name: "萨泽拉克", en: "Sazerac", type: "classic", emoji: "🥃", color: "#b8763f",
+      glass: "古典杯", abv: "高", desc: "新奥尔良的招牌，苦艾酒只是洗杯，香气却全在。",
+      ingredients: [
+        { id: "rye", amount: "50 ml" }, { id: "sugar", amount: "1 块" },
+        { id: "angostura", amount: "3 dash" }, { id: "absinthe", amount: "洗杯用" }, { id: "lemon", amount: "1 片皮" }
+      ],
+      steps: ["冰镇古典杯，倒入苦艾酒转一圈后倒掉", "搅拌杯中加冰、糖、苦精与威士忌", "搅拌 20 秒后滤入冰杯", "挤柠檬皮油，丢弃柠檬皮"]
+    },
+    {
+      id: "americano", name: "美国佬", en: "Americano", type: "classic", emoji: "❤️", color: "#d3553d",
+      glass: "古典杯", abv: "低", desc: "尼格罗尼的前身，没有金酒，更清爽易饮。",
+      ingredients: [
+        { id: "campari", amount: "30 ml" }, { id: "sweet-vermouth", amount: "30 ml" },
+        { id: "soda-water", amount: "补满" }, { id: "orange", amount: "1 片" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["古典杯加冰", "倒入金巴利与甜味美思", "苏打水补满", "橙片装饰，轻搅"]
+    },
+    {
+      id: "boulevardier", name: "花花公子", en: "Boulevardier", type: "classic", emoji: "🧡", color: "#c1613a",
+      glass: "古典杯", abv: "高", desc: "把尼格罗尼的金酒换成波本，更暖更甜。",
+      ingredients: [
+        { id: "bourbon", amount: "45 ml" }, { id: "campari", amount: "30 ml" },
+        { id: "sweet-vermouth", amount: "30 ml" }, { id: "orange", amount: "1 片皮" }, { id: "ice", amount: "1 大块" }
+      ],
+      steps: ["搅拌杯加冰", "倒入三种酒搅拌 20 秒", "滤入放大冰块的古典杯", "橙皮挤油装饰"]
+    },
+    {
+      id: "gimlet", name: "吉姆雷特", en: "Gimlet", type: "classic", emoji: "🍸", color: "#cfe0a0",
+      glass: "马天尼杯", abv: "中", desc: "金酒 + 青柠的极简组合，海军军医的配方。",
+      ingredients: [
+        { id: "gin", amount: "60 ml" }, { id: "lime-juice", amount: "20 ml" },
+        { id: "simple-syrup", amount: "20 ml" }, { id: "ice", amount: "适量" }
+      ],
+      steps: ["所有材料加冰入雪克杯", "摇 12 秒", "双重过滤入冰镇马天尼杯", "青柠角装饰"]
+    },
+    {
+      id: "bees-knees", name: "蜂之膝", en: "Bee's Knees", type: "classic", emoji: "🐝", color: "#ecc94b",
+      glass: "马天尼杯", abv: "中", desc: "禁酒令时期的经典：蜂蜜代替糖，柔化了金酒的锐利。",
+      ingredients: [
+        { id: "gin", amount: "50 ml" }, { id: "lemon-juice", amount: "25 ml" },
+        { id: "honey", amount: "20 ml" }, { id: "ice", amount: "适量" }
+      ],
+      steps: ["蜂蜜先用等量温水化开", "所有材料加冰摇匀", "滤入冰镇马天尼杯", "可撒一点柠檬皮屑"]
+    },
+    {
+      id: "french-75", name: "法兰西 75", en: "French 75", type: "classic", emoji: "🍾", color: "#e8d98a",
+      glass: "笛形香槟杯", abv: "中", desc: "据说威力像 75 毫米野战炮，入口却像气泡柠檬水。",
+      ingredients: [
+        { id: "gin", amount: "30 ml" }, { id: "lemon-juice", amount: "15 ml" },
+        { id: "simple-syrup", amount: "15 ml" }, { id: "sparkling", amount: "60 ml" },
+        { id: "lemon", amount: "1 片皮", optional: true }, { id: "ice", amount: "适量" }
+      ],
+      steps: ["金酒、柠檬汁、糖浆加冰摇匀", "滤入冰镇香槟杯", "缓慢补入冰镇气泡酒", "柠檬皮装饰"]
+    },
+    {
+      id: "white-lady", name: "白色佳人", en: "White Lady", type: "classic", emoji: "🤍", color: "#efe6d2",
+      glass: "马天尼杯", abv: "中", desc: "边车的金酒版，加蛋清后像丝绸一样顺滑。",
+      ingredients: [
+        { id: "gin", amount: "40 ml" }, { id: "cointreau", amount: "30 ml" },
+        { id: "lemon-juice", amount: "20 ml" }, { id: "egg-white", amount: "1 个", optional: true }
+      ],
+      steps: ["所有材料入雪克杯先干摇", "加冰再摇 12 秒", "双重过滤入冰镇马天尼杯", "柠檬皮装饰"]
+    },
+    {
+      id: "aviation", name: "飞行", en: "Aviation", type: "classic", emoji: "💜", color: "#b39ddb",
+      glass: "马天尼杯", abv: "中", desc: "紫罗兰利口酒带来的淡紫色，像黄昏的天空。",
+      ingredients: [
+        { id: "gin", amount: "45 ml" }, { id: "maraschino", amount: "15 ml" },
+        { id: "creme-de-violette", amount: "5 ml" }, { id: "lemon-juice", amount: "15 ml" }
+      ],
+      steps: ["所有材料加冰摇匀", "滤入冰镇马天尼杯", "放一颗酒渍樱桃"]
+    },
+    {
+      id: "last-word", name: "临别一语", en: "Last Word", type: "classic", emoji: "🗝️", color: "#a3c98a",
+      glass: "马天尼杯", abv: "高", desc: "四等份的经典，酸甜草本平衡得刚刚好。",
+      ingredients: [
+        { id: "gin", amount: "20 ml" }, { id: "chartreuse", amount: "20 ml" },
+        { id: "maraschino", amount: "20 ml" }, { id: "lime-juice", amount: "20 ml" }
+      ],
+      steps: ["四样材料各 20ml 入雪克杯加冰", "摇 12 秒", "滤入冰镇马天尼杯", "青柠皮装饰"]
+    },
+    {
+      id: "clover-club", name: "三叶草俱乐部", en: "Clover Club", type: "classic", emoji: "🍓", color: "#e79ab0",
+      glass: "马天尼杯", abv: "中", desc: "覆盆子带来的粉红色，蛋清带来天鹅绒般的泡沫。",
+      ingredients: [
+        { id: "gin", amount: "45 ml" }, { id: "lemon-juice", amount: "20 ml" },
+        { id: "raspberry-syrup", amount: "20 ml" }, { id: "egg-white", amount: "1 个" }
+      ],
+      steps: ["所有材料入雪克杯干摇 15 秒", "加冰再摇 12 秒", "双重过滤入冰镇马天尼杯", "放三颗覆盆子"]
+    },
+    {
+      id: "bramble", name: "荆棘", en: "Bramble", type: "classic", emoji: "🫐", color: "#8e7cc3",
+      glass: "古典杯", abv: "中", desc: "伦敦调酒师的 80 年代作品，黑莓糖浆顺着碎冰往下坠。",
+      ingredients: [
+        { id: "gin", amount: "50 ml" }, { id: "lemon-juice", amount: "25 ml" },
+        { id: "simple-syrup", amount: "12 ml" }, { id: "blackberry", amount: "6 颗" }, { id: "ice", amount: "碎冰" }
+      ],
+      steps: ["前三种材料加冰摇匀，滤入碎冰杯", "黑莓压成泥（或用黑莓糖浆）", "缓慢淋在表面形成沉降效果", "黑莓与柠檬片装饰"]
+    },
+    {
+      id: "penicillin", name: "盘尼西林", en: "Penicillin", type: "classic", emoji: "🫚", color: "#d8a24a",
+      glass: "古典杯", abv: "中", desc: "当代经典，姜与蜂蜜的组合喝一口就暖。",
+      ingredients: [
+        { id: "scotch", amount: "60 ml" }, { id: "lemon-juice", amount: "20 ml" },
+        { id: "honey", amount: "20 ml" }, { id: "ginger", amount: "3 片" }, { id: "ice", amount: "1 大块" }
+      ],
+      steps: ["姜切片与蜂蜜捣出味", "加入威士忌与柠檬汁，加冰摇匀", "双重过滤入放大冰块的古典杯", "姜片装饰"]
+    },
+    {
+      id: "pisco-sour", name: "皮斯科酸", en: "Pisco Sour", type: "classic", emoji: "🥚", color: "#e9e0c0",
+      glass: "古典杯", abv: "中", desc: "秘鲁国饮，蛋清泡沫上滴几滴苦精是它的签名。",
+      ingredients: [
+        { id: "pisco", amount: "50 ml" }, { id: "lemon-juice", amount: "25 ml" },
+        { id: "simple-syrup", amount: "20 ml" }, { id: "egg-white", amount: "1 个" },
+        { id: "angostura", amount: "3 dash" }, { id: "ice", amount: "适量" }
+      ],
+      steps: ["材料入雪克杯干摇 15 秒", "加冰再摇 12 秒", "滤入杯中", "在泡沫上滴苦精画几笔"]
+    },
+    {
+      id: "amaretto-sour", name: "杏仁酸", en: "Amaretto Sour", type: "classic", emoji: "🌰", color: "#c99a5b",
+      glass: "古典杯", abv: "低", desc: "杏仁甜香 + 柠檬酸，最适合不常喝酒的人。",
+      ingredients: [
+        { id: "amaretto", amount: "45 ml" }, { id: "bourbon", amount: "15 ml" },
+        { id: "lemon-juice", amount: "25 ml" }, { id: "egg-white", amount: "1 个", optional: true },
+        { id: "cherry", amount: "1 颗", optional: true }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["材料加冰摇匀（有蛋清先干摇）", "滤入放冰的古典杯", "樱桃装饰"]
+    },
+    {
+      id: "gold-rush", name: "淘金热", en: "Gold Rush", type: "classic", emoji: "🥇", color: "#e0b64a",
+      glass: "古典杯", abv: "中", desc: "只有三样材料，却是波本蜂蜜的黄金比例。",
+      ingredients: [
+        { id: "bourbon", amount: "50 ml" }, { id: "honey", amount: "20 ml" },
+        { id: "lemon-juice", amount: "20 ml" }, { id: "ice", amount: "适量" }
+      ],
+      steps: ["蜂蜜用温水调开", "全部加冰摇 12 秒", "滤入放冰的古典杯"]
+    },
+    {
+      id: "corpse-reviver", name: "还魂尸 2 号", en: "Corpse Reviver #2", type: "classic", emoji: "👻", color: "#dfe6c0",
+      glass: "马天尼杯", abv: "高", desc: "名字吓人，喝起来却像带草本香的柠檬水。",
+      ingredients: [
+        { id: "gin", amount: "25 ml" }, { id: "cointreau", amount: "25 ml" },
+        { id: "lillet", amount: "25 ml" }, { id: "lemon-juice", amount: "25 ml" },
+        { id: "absinthe", amount: "1 dash" }
+      ],
+      steps: ["等比例混合四种材料，加一滴苦艾酒", "加冰摇 12 秒", "滤入冰镇马天尼杯", "橙皮装饰"]
+    },
+    {
+      id: "martinez", name: "马丁内斯", en: "Martinez", type: "classic", emoji: "🍒", color: "#c98a5b",
+      glass: "马天尼杯", abv: "中", desc: "马天尼的前身，比它甜、比它柔。",
+      ingredients: [
+        { id: "gin", amount: "45 ml" }, { id: "sweet-vermouth", amount: "20 ml" },
+        { id: "maraschino", amount: "5 ml" }, { id: "angostura", amount: "2 dash" },
+        { id: "lemon", amount: "1 片皮" }, { id: "ice", amount: "适量" }
+      ],
+      steps: ["搅拌杯加冰", "倒入全部材料搅拌 20 秒", "滤入冰镇马天尼杯", "柠檬皮装饰"]
+    },
+    {
+      id: "hanky-panky", name: "手帕游戏", en: "Hanky Panky", type: "classic", emoji: "🎩", color: "#9b5b4a",
+      glass: "马天尼杯", abv: "高", desc: "甜味美思 + 一点苦酒，是懂酒人的隐藏菜单。",
+      ingredients: [
+        { id: "gin", amount: "45 ml" }, { id: "sweet-vermouth", amount: "45 ml" },
+        { id: "amaro", amount: "1 dash" }, { id: "orange", amount: "1 片皮" }
+      ],
+      steps: ["材料加冰搅拌 20 秒", "滤入冰镇马天尼杯", "橙皮挤油装饰"]
+    },
+    {
+      id: "toronto", name: "多伦多", en: "Toronto", type: "classic", emoji: "🍁", color: "#a4523f",
+      glass: "古典杯", abv: "高", desc: "黑麦威士忌与苦酒的组合，适合冬天的夜晚。",
+      ingredients: [
+        { id: "rye", amount: "50 ml" }, { id: "amaro", amount: "10 ml" },
+        { id: "angostura", amount: "2 dash" }, { id: "orange", amount: "1 片皮" }, { id: "ice", amount: "1 大块" }
+      ],
+      steps: ["材料加冰搅拌 20 秒", "滤入放大冰块的古典杯", "橙皮挤油装饰"]
+    },
+    {
+      id: "singapore-sling", name: "新加坡司令", en: "Singapore Sling", type: "classic", emoji: "🍹", color: "#e4637a",
+      glass: "高球杯", abv: "中", desc: "莱佛士酒店的招牌，材料虽多但层次华丽。",
+      ingredients: [
+        { id: "gin", amount: "30 ml" }, { id: "maraschino", amount: "15 ml" }, { id: "cointreau", amount: "7 ml" },
+        { id: "benedictine", amount: "7 ml" }, { id: "pineapple-juice", amount: "120 ml" }, { id: "lime-juice", amount: "15 ml" },
+        { id: "grenadine", amount: "10 ml" }, { id: "angostura", amount: "1 dash" }, { id: "cherry", amount: "1 颗" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["所有材料加冰摇匀", "滤入加冰的高球杯", "补一点苏打水（可选）", "樱桃与菠萝片装饰"],
+      video: "https://search.bilibili.com/all?keyword=新加坡司令 调酒", videoName: "B 站·新加坡司令教程"
+    },
+    {
+      id: "jungle-bird", name: "丛林鸟", en: "Jungle Bird", type: "classic", emoji: "🐦", color: "#c0442f",
+      glass: "古典杯", abv: "中", desc: "黑朗姆配金巴利与菠萝，苦甜热带的代表作。",
+      ingredients: [
+        { id: "dark-rum", amount: "45 ml" }, { id: "campari", amount: "22 ml" },
+        { id: "pineapple-juice", amount: "45 ml" }, { id: "lime-juice", amount: "15 ml" },
+        { id: "simple-syrup", amount: "15 ml" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["所有材料加冰摇匀", "滤入放冰的古典杯", "菠萝片装饰"]
+    },
+    {
+      id: "zombie", name: "僵尸", en: "Zombie", type: "classic", emoji: "🧟", color: "#e06b3c",
+      glass: "飓风杯", abv: "超高", desc: "三种朗姆叠加，喝起来却完全不像烈酒——所以叫僵尸。",
+      ingredients: [
+        { id: "white-rum", amount: "30 ml" }, { id: "dark-rum", amount: "30 ml" }, { id: "overproof-rum", amount: "15 ml" },
+        { id: "lime-juice", amount: "20 ml" }, { id: "grapefruit-juice", amount: "20 ml" }, { id: "passionfruit-juice", amount: "15 ml" },
+        { id: "grenadine", amount: "10 ml" }, { id: "cinnamon-syrup", amount: "5 ml" }, { id: "mint", amount: "1 枝", optional: true }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["所有材料加冰大力摇匀", "连冰倒入飓风杯", "表面淋一点朗姆", "薄荷枝装饰"]
+    },
+    {
+      id: "hurricane", name: "飓风", en: "Hurricane", type: "classic", emoji: "🌀", color: "#e8873c",
+      glass: "飓风杯", abv: "中", desc: "新奥尔良的经典，百香果与朗姆的热带风暴。",
+      ingredients: [
+        { id: "white-rum", amount: "30 ml" }, { id: "dark-rum", amount: "30 ml" },
+        { id: "passionfruit-juice", amount: "60 ml" }, { id: "orange-juice", amount: "30 ml" },
+        { id: "lime-juice", amount: "15 ml" }, { id: "grenadine", amount: "10 ml" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["所有材料加冰摇匀", "连冰倒入飓风杯", "橙片与樱桃装饰"]
+    },
+    {
+      id: "painkiller", name: "止痛药", en: "Painkiller", type: "classic", emoji: "🥥", color: "#f0d79a",
+      glass: "飓风杯", abv: "中", desc: "英属维尔京群岛的度假标配，椰香浓郁。",
+      ingredients: [
+        { id: "dark-rum", amount: "60 ml" }, { id: "pineapple-juice", amount: "120 ml" },
+        { id: "orange-juice", amount: "30 ml" }, { id: "coconut-cream", amount: "30 ml" },
+        { id: "nutmeg", amount: "少许", optional: true }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["所有材料加冰摇匀", "倒入放冰的杯子", "表面刨一点肉豆蔻"]
+    },
+    {
+      id: "blue-hawaii", name: "蓝色夏威夷", en: "Blue Hawaii", type: "classic", emoji: "🏝️", color: "#4fc3f7",
+      glass: "高球杯", abv: "低", desc: "1957 年诞生于夏威夷，蓝橙让整杯像海水。",
+      ingredients: [
+        { id: "white-rum", amount: "30 ml" }, { id: "blue-curacao", amount: "30 ml" },
+        { id: "pineapple-juice", amount: "60 ml" }, { id: "coconut-cream", amount: "30 ml" },
+        { id: "cherry", amount: "1 颗", optional: true }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["所有材料加冰摇匀", "滤入加冰的高球杯", "樱桃与菠萝片装饰"]
+    },
+    {
+      id: "cuba-libre", name: "自由古巴", en: "Cuba Libre", type: "classic", emoji: "🥤", color: "#b5651d",
+      glass: "高球杯", abv: "低", desc: "朗姆 + 可乐 + 青柠，几乎不可能失败。",
+      ingredients: [
+        { id: "white-rum", amount: "45 ml" }, { id: "cola", amount: "120 ml" },
+        { id: "lime", amount: "1 角" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["高球杯加冰", "倒入朗姆酒", "可乐补满，挤入青柠汁并放入青柠角", "轻搅"]
+    },
+    {
+      id: "greyhound", name: "灰狗", en: "Greyhound", type: "classic", emoji: "🐕", color: "#f2b5b5",
+      glass: "高球杯", abv: "低", desc: "金酒 + 西柚汁，两样材料，零难度。",
+      ingredients: [
+        { id: "gin", amount: "45 ml" }, { id: "grapefruit-juice", amount: "120 ml" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["高球杯加冰", "倒入金酒与西柚汁", "搅拌，西柚片装饰"]
+    },
+    {
+      id: "sea-breeze", name: "海风", en: "Sea Breeze", type: "classic", emoji: "🌊", color: "#e46b7f",
+      glass: "高球杯", abv: "低", desc: "蔓越莓 + 西柚，颜色最讨喜的一杯。",
+      ingredients: [
+        { id: "vodka", amount: "45 ml" }, { id: "cranberry-juice", amount: "90 ml" },
+        { id: "grapefruit-juice", amount: "45 ml" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["高球杯加冰", "倒入伏特加与两种果汁", "搅拌，青柠角装饰"]
+    },
+    {
+      id: "bellini", name: "贝利尼", en: "Bellini", type: "classic", emoji: "🍑", color: "#f3b7a0",
+      glass: "笛形香槟杯", abv: "低", desc: "威尼斯哈里酒吧的发明，白桃与气泡的经典早午餐酒。",
+      ingredients: [
+        { id: "sparkling", amount: "100 ml" }, { id: "peach-fruit", amount: "1 个打成泥" }
+      ],
+      steps: ["桃子去皮打成泥（或用桃子汁）", "杯中先放 1/3 桃泥", "缓慢倒入冰镇气泡酒", "轻搅一下即可"]
+    },
+    {
+      id: "mimosa", name: "含羞草", en: "Mimosa", type: "classic", emoji: "🥂", color: "#f7c948",
+      glass: "笛形香槟杯", abv: "低", desc: "气泡酒 + 橙汁，1:1，早餐和派对都合适。",
+      ingredients: [
+        { id: "sparkling", amount: "100 ml" }, { id: "orange-juice", amount: "100 ml" }
+      ],
+      steps: ["冰镇香槟杯", "先倒橙汁", "再缓慢倒入气泡酒", "轻搅，橙片装饰"]
+    },
+    {
+      id: "grasshopper", name: "蚱蜢", en: "Grasshopper", type: "classic", emoji: "🦗", color: "#8fd18f",
+      glass: "马天尼杯", abv: "低", desc: "薄荷 + 可可 + 奶油，像一杯融化的薄荷巧克力。",
+      ingredients: [
+        { id: "creme-de-menthe", amount: "20 ml" }, { id: "cacao-white", amount: "20 ml" },
+        { id: "cream", amount: "20 ml" }, { id: "ice", amount: "适量" }
+      ],
+      steps: ["三种材料加冰摇匀", "滤入冰镇马天尼杯", "表面撒可可粉"]
+    },
+    {
+      id: "mudslide", name: "泥石流", en: "Mudslide", type: "classic", emoji: "🍫", color: "#7b5b3a",
+      glass: "古典杯", abv: "中", desc: "伏特加 + 咖啡 + 百利甜，甜点即正义。",
+      ingredients: [
+        { id: "vodka", amount: "30 ml" }, { id: "kahlua", amount: "20 ml" },
+        { id: "baileys", amount: "20 ml" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["古典杯加冰", "依次倒入三种酒", "轻搅", "可加奶油漂浮"]
+    },
+    {
+      id: "alexander", name: "亚历山大", en: "Alexander", type: "classic", emoji: "🌰", color: "#c8a17a",
+      glass: "马天尼杯", abv: "中", desc: "干邑 + 可可 + 奶油，老派的优雅。",
+      ingredients: [
+        { id: "cognac", amount: "30 ml" }, { id: "cacao-white", amount: "30 ml" },
+        { id: "cream", amount: "30 ml" }, { id: "nutmeg", amount: "少许", optional: true }
+      ],
+      steps: ["材料加冰摇匀", "滤入冰镇马天尼杯", "表面撒肉豆蔻粉"]
+    },
+    {
+      id: "godfather", name: "教父", en: "Godfather", type: "classic", emoji: "🎬", color: "#a97b3c",
+      glass: "古典杯", abv: "高", desc: "苏格兰威士忌 + 杏仁利口酒，两样材料的电影感。",
+      ingredients: [
+        { id: "scotch", amount: "45 ml" }, { id: "amaretto", amount: "20 ml" }, { id: "ice", amount: "1 大块" }
+      ],
+      steps: ["古典杯放一块大冰", "倒入威士忌与杏仁利口酒", "搅拌 15 秒", "橙皮装饰"]
+    },
+    {
+      id: "irish-coffee", name: "爱尔兰咖啡", en: "Irish Coffee", type: "classic", emoji: "☕", color: "#6f4e37",
+      glass: "爱尔兰咖啡杯", abv: "低", desc: "咖啡、威士忌、奶油，冬天的救命饮品。",
+      ingredients: [
+        { id: "irish-whiskey", amount: "40 ml" }, { id: "espresso", amount: "60 ml" },
+        { id: "sugar", amount: "1 茶匙" }, { id: "cream", amount: "30 ml" }
+      ],
+      steps: ["杯中放糖，倒入热咖啡搅化", "加入爱尔兰威士忌", "淡奶油轻打发后沿勺背浮在表面", "不要搅拌，透过奶油喝"]
+    },
+    {
+      id: "kentucky-mule", name: "肯塔基骡子", en: "Kentucky Mule", type: "classic", emoji: "🐎", color: "#c98a3c",
+      glass: "铜杯", abv: "中", desc: "把莫斯科骡子的伏特加换成波本，更有谷物香。",
+      ingredients: [
+        { id: "bourbon", amount: "45 ml" }, { id: "ginger-beer", amount: "120 ml" },
+        { id: "lime-juice", amount: "15 ml" }, { id: "mint", amount: "1 枝", optional: true }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["铜杯加满冰", "倒入波本与青柠汁", "姜汁啤酒补满", "薄荷枝装饰"]
+    },
+    {
+      id: "gin-basil-smash", name: "金酒罗勒", en: "Gin Basil Smash", type: "classic", emoji: "🌿", color: "#79c47a",
+      glass: "古典杯", abv: "中", desc: "2008 年诞生的新经典，罗勒香比薄荷更有个性。",
+      ingredients: [
+        { id: "gin", amount: "60 ml" }, { id: "basil", amount: "6 片" },
+        { id: "lemon-juice", amount: "25 ml" }, { id: "simple-syrup", amount: "20 ml" }, { id: "ice", amount: "适量" }
+      ],
+      steps: ["罗勒叶与糖浆轻压出香", "加入其余材料，加冰大力摇匀", "双重过滤入放冰的古典杯", "罗勒叶装饰"]
+    },
+    {
+      id: "negroni-sbagliato", name: "尼格罗尼气泡", en: "Negroni Sbagliato", type: "classic", emoji: "🫧", color: "#d96a4a",
+      glass: "古典杯", abv: "低", desc: "“做错了”的尼格罗尼：金酒换成气泡酒，意外地好喝。",
+      ingredients: [
+        { id: "campari", amount: "30 ml" }, { id: "sweet-vermouth", amount: "30 ml" },
+        { id: "sparkling", amount: "60 ml" }, { id: "orange", amount: "1 片" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["古典杯加冰", "倒入金巴利与甜味美思", "补入冰镇气泡酒", "橙片装饰"]
+    },
+    {
+      id: "garibaldi", name: "加里波第", en: "Garibaldi", type: "classic", emoji: "🍊", color: "#f08a3c",
+      glass: "高球杯", abv: "低", desc: "金巴利 + 打发的橙汁，像喝一朵橙子云。",
+      ingredients: [
+        { id: "campari", amount: "45 ml" }, { id: "orange-juice", amount: "90 ml" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["橙汁用打泡器打出绵密泡沫", "高球杯加冰，倒入金巴利", "缓慢注入橙汁泡沫", "橙片装饰"]
+    },
+    {
+      id: "michelada", name: "米切拉达", en: "Michelada", type: "classic", emoji: "🍺", color: "#d4552f",
+      glass: "大杯", abv: "低", desc: "啤酒 + 番茄 + 辣酱，夏天的咸口啤酒。",
+      ingredients: [
+        { id: "beer", amount: "300 ml" }, { id: "lime-juice", amount: "20 ml" }, { id: "tomato-juice", amount: "60 ml" },
+        { id: "worcestershire", amount: "3 dash" }, { id: "tabasco", amount: "2 dash" }, { id: "salt", amount: "杯口" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["杯口抹盐", "加冰，倒入番茄汁、青柠汁与调料", "缓慢倒入冰啤酒", "轻搅，青柠角装饰"]
+    },
+    {
+      id: "john-collins", name: "约翰柯林斯", en: "John Collins", type: "classic", emoji: "🍋", color: "#e8d98a",
+      glass: "高球杯", abv: "低", desc: "汤姆柯林斯的波本版本，更香更暖。",
+      ingredients: [
+        { id: "bourbon", amount: "45 ml" }, { id: "lemon-juice", amount: "30 ml" },
+        { id: "simple-syrup", amount: "15 ml" }, { id: "soda-water", amount: "补满" },
+        { id: "cherry", amount: "1 颗", optional: true }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["高球杯加冰", "倒入波本、柠檬汁与糖浆搅匀", "苏打水补满", "樱桃装饰"]
+    },
+    {
+      id: "harvey-wallbanger", name: "哈维撞墙", en: "Harvey Wallbanger", type: "classic", emoji: "🍊", color: "#f2c14e",
+      glass: "高球杯", abv: "低", desc: "螺丝起子加一层加利安奴，香草味浮在顶部。",
+      ingredients: [
+        { id: "vodka", amount: "45 ml" }, { id: "orange-juice", amount: "120 ml" },
+        { id: "galliano", amount: "15 ml" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["高球杯加冰", "倒入伏特加与橙汁搅匀", "沿勺背浮一层加利安奴", "橙片装饰"]
+    },
+    {
+      id: "lemon-drop", name: "柠檬滴", en: "Lemon Drop", type: "classic", emoji: "🍋", color: "#f7e07a",
+      glass: "马天尼杯", abv: "中", desc: "像在喝一颗糖渍柠檬，酸甜到忍不住眯眼。",
+      ingredients: [
+        { id: "vodka", amount: "40 ml" }, { id: "lemon-juice", amount: "20 ml" },
+        { id: "simple-syrup", amount: "15 ml" }, { id: "sugar", amount: "杯口", optional: true }, { id: "ice", amount: "适量" }
+      ],
+      steps: ["杯口做糖边", "材料加冰摇匀", "滤入冰镇马天尼杯", "柠檬片装饰"]
+    },
+    {
+      id: "kamikaze", name: "神风", en: "Kamikaze", type: "classic", emoji: "💥", color: "#cfe0a0",
+      glass: "马天尼杯", abv: "高", desc: "伏特加 + 君度 + 青柠，1:1:1，简单直接。",
+      ingredients: [
+        { id: "vodka", amount: "30 ml" }, { id: "cointreau", amount: "30 ml" },
+        { id: "lime-juice", amount: "30 ml" }, { id: "ice", amount: "适量" }
+      ],
+      steps: ["材料加冰摇 12 秒", "滤入冰镇马天尼杯", "青柠片装饰"]
+    },
+    {
+      id: "sex-on-the-beach", name: "性感沙滩", en: "Sex on the Beach", type: "classic", emoji: "🏖️", color: "#f06b6b",
+      glass: "高球杯", abv: "低", desc: "桃子和蔓越莓的甜香，聚会里最受欢迎的一杯。",
+      ingredients: [
+        { id: "vodka", amount: "40 ml" }, { id: "peach", amount: "20 ml" },
+        { id: "orange-juice", amount: "40 ml" }, { id: "cranberry-juice", amount: "40 ml" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["所有材料加冰摇匀", "连冰倒入高球杯", "橙片装饰"]
+    },
+    {
+      id: "espresso-tonic", name: "浓缩汤力", en: "Espresso Tonic", type: "classic", emoji: "⚡", color: "#8a6b4a",
+      glass: "高球杯", abv: "无", desc: "不含酒精的咖啡馆新宠，气泡与咖啡油脂的碰撞。",
+      ingredients: [
+        { id: "espresso", amount: "30 ml" }, { id: "tonic", amount: "120 ml" },
+        { id: "orange", amount: "1 片皮", optional: true }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["高球杯加满冰", "倒入冰镇汤力水", "缓慢淋入浓缩咖啡", "橙皮挤油，不要搅拌"]
+    },
+    {
+      id: "black-russian", name: "黑色俄罗斯", en: "Black Russian", type: "classic", emoji: "🖤", color: "#4a3527",
+      glass: "古典杯", abv: "中", desc: "伏特加 + 咖啡利口酒，白色俄罗斯的原始版本。",
+      ingredients: [
+        { id: "vodka", amount: "50 ml" }, { id: "kahlua", amount: "20 ml" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["古典杯加冰", "倒入伏特加与咖啡利口酒", "搅拌 10 秒"]
+    },
+    {
+      id: "screwdriver", name: "螺丝起子", en: "Screwdriver", type: "classic", emoji: "🪛", color: "#f6a623",
+      glass: "高球杯", abv: "低", desc: "伏特加 + 橙汁，全世界最简单的鸡尾酒。",
+      ingredients: [
+        { id: "vodka", amount: "45 ml" }, { id: "orange-juice", amount: "120 ml" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["高球杯加冰", "倒入伏特加", "橙汁补满，搅拌"]
+    },
+
     /* ---------- 用户创作的特调示例 ---------- */
     {
       id: "custom-lychee-rose", name: "荔枝玫瑰气泡", en: "Lychee Rose Fizz", type: "custom", emoji: "🌸", color: "#f7b6c8",
@@ -409,20 +951,87 @@ window.SEED = {
         { id: "ice", amount: "满杯" }, { id: "basil", amount: "2 片", optional: true }
       ],
       steps: ["杯中加满冰", "倒入白酒、柠檬汁、蜂蜜水搅匀", "苏打水补满", "拍一片罗勒放入杯中"]
+    },
+    {
+      id: "custom-plum-soda", name: "青梅气泡特调", en: "Green Plum Soda", type: "custom", emoji: "🟢", color: "#a8d98a",
+      glass: "高球杯", abv: "低", desc: "自创特调：梅酒打底，青梅与气泡水让酸甜更清爽，配火锅一流。",
+      ingredients: [
+        { id: "plum-wine", amount: "60 ml" }, { id: "soda-water", amount: "120 ml" },
+        { id: "plum", amount: "1 颗" }, { id: "honey", amount: "10 ml" },
+        { id: "mint", amount: "1 枝", optional: true }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["高球杯加冰，放入青梅轻压", "倒入梅酒与蜂蜜搅匀", "苏打水补满", "插薄荷枝"]
+    },
+    {
+      id: "custom-hawthorn-gin", name: "山楂金酒酸", en: "Hawthorn Gin Sour", type: "custom", emoji: "🔴", color: "#e0705a",
+      glass: "古典杯", abv: "中", desc: "自创特调：山楂的果酸中和金酒，蜂蜜收尾，酸甜开胃。",
+      ingredients: [
+        { id: "gin", amount: "45 ml" }, { id: "hawthorn", amount: "5 颗" },
+        { id: "lemon-juice", amount: "20 ml" }, { id: "honey", amount: "15 ml" },
+        { id: "soda-water", amount: "60 ml" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["山楂去核压碎，与蜂蜜、柠檬汁拌匀", "加入金酒与冰摇匀", "滤入放冰的古典杯", "苏打水补至八分满"]
+    },
+    {
+      id: "custom-goji-whisky", name: "枸杞桂圆威士忌", en: "Goji Longan Whisky", type: "custom", emoji: "🟤", color: "#b5763a",
+      glass: "古典杯", abv: "中", desc: "自创特调：中式养生风，桂圆枸杞的甘甜配波本，冬天暖身。",
+      ingredients: [
+        { id: "bourbon", amount: "45 ml" }, { id: "goji", amount: "1 小把" },
+        { id: "longan", amount: "3 颗" }, { id: "honey", amount: "10 ml" },
+        { id: "lemon-juice", amount: "10 ml" }, { id: "ice", amount: "1 大块" }
+      ],
+      steps: ["桂圆与枸杞用少量温水泡 5 分钟", "杯中放蜂蜜、柠檬汁与泡好的材料", "加入大冰块与波本", "搅拌 15 秒，桂圆装饰"]
+    },
+    {
+      id: "custom-passionfruit-mojito", name: "百香果莫吉托", en: "Passion Fruit Mojito", type: "custom", emoji: "🟠", color: "#f2a03d",
+      glass: "高球杯", abv: "低", desc: "自创特调：在莫吉托里加一颗百香果，酸香更立体。",
+      ingredients: [
+        { id: "white-rum", amount: "45 ml" }, { id: "passionfruit", amount: "1 个" },
+        { id: "lime-juice", amount: "15 ml" }, { id: "simple-syrup", amount: "15 ml" },
+        { id: "mint", amount: "8 片" }, { id: "soda-water", amount: "补满" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["薄荷与糖浆轻压出香", "加入百香果果肉、青柠汁与白朗姆", "加满碎冰搅拌", "苏打水补满，放半颗百香果装饰"]
     }
   ],
 
   /* ---------- 默认账号与站点设置 ---------- */
   users: [
-    { id: "u-admin", username: "admin", password: "admin123", role: "admin", createdAt: "2026-01-01" },
-    { id: "u-demo", username: "demo", password: "123456", role: "user", createdAt: "2026-01-01" }
+    {
+      id: "u-admin", username: "admin", password: "Cocktail@2026", role: "admin",
+      nickname: "站长", createdAt: "2026-01-01",
+      intro: "站点管理员：负责材料库、配方审核、评论管理与用户权限。"
+    },
+    {
+      id: "u-demo", username: "demo", password: "123456", role: "user",
+      nickname: "爱喝莫吉托的人", createdAt: "2026-01-01",
+      intro: "普通用户：可以发布配方、推荐视频、评论和收藏。"
+    }
   ],
 
   settings: {
     siteName: "今晚喝什么",
     slogan: "看看冰箱里有什么，再决定今晚喝什么",
-    allowUserPublish: true,   // 允许普通用户发布配方
-    needReview: false,        // 用户发布的配方是否需要管理员审核后才公开
-    allowUserVideo: true      // 允许用户给配方补充视频链接
-  }
+    allowUserPublish: true,        // 允许普通用户发布配方
+    needReview: false,             // 用户发布的配方是否需要管理员审核后才公开
+    allowUserVideo: true,          // 允许用户给配方补充视频链接
+    allowUserEditOwnRecipe: true,  // 允许用户编辑自己发布的配方
+    allowUserDeleteOwnRecipe: true, // 允许用户删除自己发布的配方
+    allowUserComment: true,        // 允许用户发表评论
+    allowUserDeleteOwnComment: true, // 允许用户删除自己的评论
+    commentPageSize: 10            // 评论区每次加载条数
+  },
+
+  /* ---------- 示例评论（hoursAgo 会在首次载入时换算成真实时间） ---------- */
+  comments: [
+    { id: "c-seed-1", recipeId: "gin-tonic", userId: "u-demo", username: "demo", nickname: "爱喝莫吉托的人",
+      content: "按这个比例做了，汤力水一定要冰镇，差别很大！", hoursAgo: 30, likes: ["u-admin"], pinned: true },
+    { id: "c-seed-2", recipeId: "gin-tonic", userId: "u-admin", username: "admin", nickname: "站长",
+      content: "补一个小技巧：青柠角先在杯口擦一圈再放进去，香气会更明显。", hoursAgo: 20, likes: ["u-demo"] },
+    { id: "c-seed-3", recipeId: "mojito", userId: "u-demo", username: "demo", nickname: "爱喝莫吉托的人",
+      content: "薄荷千万别捣太狠，会发苦，轻压两下就够了。", hoursAgo: 8, likes: ["u-admin"] },
+    { id: "c-seed-4", recipeId: "negroni", userId: "u-demo", username: "demo", nickname: "爱喝莫吉托的人",
+      content: "第一次喝有点苦，第二次就上瘾了，建议冰块放足一点。", hoursAgo: 3, likes: [] },
+    { id: "c-seed-5", recipeId: "espresso-martini", userId: "u-demo", username: "demo", nickname: "爱喝莫吉托的人",
+      content: "咖啡一定要现萃的，摇的时候用力一点才有那层奶泡。", hoursAgo: 1, likes: ["u-admin"] }
+  ]
 };
