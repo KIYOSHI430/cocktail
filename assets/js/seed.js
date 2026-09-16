@@ -1009,7 +1009,7 @@ window.SEED = {
   ],
 
   settings: {
-    siteName: "今晚喝什么",
+    siteName: "鸡尾酒法典",
     slogan: "看看冰箱里有什么，再决定今晚喝什么",
     allowUserPublish: true,        // 允许普通用户发布配方
     needReview: false,             // 用户发布的配方是否需要管理员审核后才公开

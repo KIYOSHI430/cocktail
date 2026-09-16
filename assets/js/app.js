@@ -128,7 +128,7 @@
     }
     var adminLink = document.querySelector('[data-nav="admin"]');
     if (adminLink) adminLink.classList.toggle("hidden", !(me && me.role === "admin"));
-    var name = Store.getSettings().siteName || "今晚喝什么";
+    var name = Store.getSettings().siteName || "鸡尾酒法典";
     var brandText = document.querySelector(".brand-text");
     if (brandText) brandText.innerHTML = esc(name) + "<em>" + esc(Store.getSettings().slogan || "调酒灵感") + "</em>";
     document.title = name + " · 调酒灵感";
@@ -1278,7 +1278,7 @@
     if (form.id === "settingsForm") {
       var fd5 = new FormData(form);
       Store.updateSettings({
-        siteName: fd5.get("siteName") || "今晚喝什么",
+        siteName: fd5.get("siteName") || "鸡尾酒法典",
         slogan: fd5.get("slogan") || "",
         allowUserPublish: !!fd5.get("allowUserPublish"),
         needReview: !!fd5.get("needReview"),

@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "cocktail_app_v1";
-  var DATA_VERSION = 2;
+  var DATA_VERSION = 3;
   var state = null;
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -100,6 +100,9 @@
 
     s.settings = Object.assign(clone(window.SEED.settings), s.settings || {});
     if (!Array.isArray(s.comments)) s.comments = seedComments();
+
+    // 站点更名：只有还停留在旧名字时才跟着改，你自己设过的名字不会被覆盖
+    if (s.settings.siteName === "今晚喝什么") s.settings.siteName = "鸡尾酒法典";
 
     s.version = DATA_VERSION;
     console.log("[数据升级] 新增材料 " + addedIng + " 种，新增配方 " + addedRec + " 款");
