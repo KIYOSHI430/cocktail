@@ -110,7 +110,12 @@
   /** 材料带上拼音字段（用于首字母排序与拼音搜索） */
   function decorateIngredient(i) {
     var py = pinyinOf("ingredients", i.id);
-    return Object.assign({}, i, { py: py.p, initial: py.i, akaPy: String(i.aka || "").toLowerCase() });
+    var alias = ((window.SEED.aliases || {}).ingredients || {})[i.id] || "";
+    return Object.assign({}, i, {
+      py: py.p, initial: py.i,
+      alias: alias,
+      akaPy: String(i.aka || "").toLowerCase()
+    });
   }
 
   /** 演示图库支持在后面加 /preview 取小图，其它图源直接用原图 */
@@ -1196,7 +1201,7 @@
       if (cat && cat !== "全部" && i.cat !== cat) return false;
       if (!terms.length) return true;
       // 中文名 / 英文别名 / 拼音全拼 / 拼音首字母 都能搜到
-      var hay = [i.name, i.aka, i.cat, i.emoji, i.py, i.initial].join(" ").toLowerCase();
+      var hay = [i.name, i.aka, i.alias, i.cat, i.emoji, i.py, i.initial].join(" ").toLowerCase();
       return terms.every(function (t) { return hay.indexOf(t) >= 0; });
     });
   }
@@ -1240,8 +1245,15 @@
 
     if (terms.length) {
       list = list.filter(function (r) {
-        var ingText = r.ingredients.map(function (x) { return ingredientName(x.id); }).join(" ");
-        var hay = [r.name, r.en, r.desc, r.author, r.glass, r.abv, ingText, r.py, r.initial].join(" ").toLowerCase();
+        // 材料名 + 材料别名也算进搜索范围：搜 "Gin"、"毡酒" 都能找到用到它的酒
+        var ingText = r.ingredients.map(function (x) {
+          var ing = getIngredient(x.id);
+          var alias = ((window.SEED.aliases || {}).ingredients || {})[x.id] || "";
+          return ingredientName(x.id) + " " + (ing ? ing.aka : "") + " " + alias;
+        }).join(" ");
+        var rAlias = ((window.SEED.aliases || {}).recipes || {})[r.id] || "";
+        var hay = [r.name, r.en, rAlias, r.desc, r.author, r.glass, r.abv, ingText, r.py, r.initial]
+          .join(" ").toLowerCase();
         return terms.every(function (t) { return hay.indexOf(t) >= 0; });
       });
     }

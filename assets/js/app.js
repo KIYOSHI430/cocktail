@@ -1131,8 +1131,12 @@
             '<button class="chip" data-action="match-clear">全部清空</button></div>' +
           "</div>" +
           '<div class="selected-bar" id="selectedBar"></div>' +
-          '<div id="ingPickerWrap"></div>' +
+          '<div class="picker-body">' +
+            '<div id="ingPickerWrap"></div>' +
+            '<div class="az-index" id="azIndex"></div>' +
+          "</div>" +
           '<p class="mute-text picker-foot">材料按大类分组、组内按拼音首字母 A→Z 排列；搜「jinjiu」也能搜到金酒。' +
+          '右边的字母栏可以快速跳到对应首字母。' +
           '发现材料缺失或写错？<button class="link-btn" data-action="report">提交勘误</button></p>' +
         "</section>" +
         '<section class="panel results-panel">' +
@@ -1189,7 +1193,7 @@
         '<button class="mini-btn" data-action="match-cat-all">全选</button>' +
         '<button class="mini-btn" data-action="match-cat-none">取消</button></h3>' +
         groups.map(function (g) {
-          return '<div class="letter-group"><span class="letter">' + esc(g.letter) + "</span>" +
+          return '<div class="letter-group" data-letter="' + esc(g.letter) + '"><span class="letter">' + esc(g.letter) + "</span>" +
             '<div class="ing-picker">' + g.items.map(function (i) {
               return '<button class="ing-chip ' + (selected[i.id] ? "on" : "") + '" data-action="match-toggle" data-id="' + i.id +
                 '" title="' + esc(i.aka || i.name) + '"><span class="e">' + esc(i.emoji || "🍹") + "</span>" +
@@ -1199,6 +1203,24 @@
         "</div>";
     }).join("");
     wrap.innerHTML = html || '<div class="empty sm">没有找到匹配的材料，换个关键词试试。</div>';
+    renderAzIndex();
+  }
+
+  /** 右侧 A–Z 快速索引：像通讯录那样，点字母直接跳到那一组 */
+  function renderAzIndex() {
+    var host = document.getElementById("azIndex");
+    if (!host) return;
+    var avail = {};
+    document.querySelectorAll("#ingPickerWrap .letter-group").forEach(function (g) {
+      avail[g.getAttribute("data-letter")] = true;
+    });
+    var letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+    host.innerHTML =
+      '<button type="button" data-action="az-top" title="回到顶部">↑</button>' +
+      letters.map(function (L) {
+        return '<button type="button" data-action="az-jump" data-value="' + L + '" class="' + (avail[L] ? "" : "off") + '">' + L + "</button>";
+      }).join("") +
+      '<button type="button" data-action="az-jump" data-value="#" class="' + (avail["#"] ? "" : "off") + '">#</button>';
   }
 
   function syncMatchChip(id, on) {
@@ -1866,6 +1888,26 @@
       /* 交流区 */
       case "new-post": openPostEditor(id || null); break;
       case "post-tag": go("#/posts/recipe/" + value); break;
+      case "az-jump": {
+        var group = document.querySelector('#ingPickerWrap .letter-group[data-letter="' + value + '"]');
+        if (group) {
+          group.scrollIntoView({ behavior: "smooth", block: "center" });
+          var idx = document.getElementById("azIndex");
+          if (idx) {
+            idx.querySelectorAll(".on").forEach(function (b) { b.classList.remove("on"); });
+            var me2 = idx.querySelector('[data-value="' + value + '"]');
+            if (me2) me2.classList.add("on");
+          }
+        }
+        break;
+      }
+      case "az-top": {
+        var body = document.querySelector(".picker-body");
+        if (body) body.scrollIntoView({ behavior: "smooth", block: "start" });
+        var idx2 = document.getElementById("azIndex");
+        if (idx2) idx2.querySelectorAll(".on").forEach(function (b) { b.classList.remove("on"); });
+        break;
+      }
       case "post-tag-clear": go("#/posts"); break;
       case "post-fav-filter": postState.onlyFav = !postState.onlyFav; renderPosts(); break;
       case "post-fav": {
