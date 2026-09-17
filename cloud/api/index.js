@@ -41,9 +41,14 @@ try {
   console.error("[api] 云开发 SDK 初始化失败：", initError);
 }
 
+/* 注意：如果你不传 database，SDK 会拿**环境 ID** 当 schema 名发给 PostgREST，
+   于是报 "Invalid schema: <环境ID>"。云开发 SQL 数据库的表都在 public 这个 schema 里，
+   所以这里必须显式指定 database: "public"。 */
+const RDB_SCHEMA = process.env.RDB_SCHEMA || "public";
+
 function rdb() {
   if (!app) throw new Error("云开发 SDK 未就绪（" + (initError || "缺少环境信息") + "）");
-  return app.rdb();
+  return app.rdb({ instance: "default", database: RDB_SCHEMA });
 }
 
 const SESSION_DAYS = 30;
@@ -580,7 +585,13 @@ async function handle(action, payload, token) {
   if (action === "ping") {
     try {
       const rows = await dbSelect("ingredients", [], { limit: 1 });
-      return ok({ db: "ok", ingredients: rows.length, env: process.env.TCB_ENV || "", time: Date.now() });
+      return ok({
+        db: "ok",
+        schema: RDB_SCHEMA,
+        ingredients: rows.length,
+        env: process.env.TCB_ENV || process.env.SCF_NAMESPACE || "",
+        time: Date.now()
+      });
     } catch (e) {
       return fail("数据库连不上：" + e.message);
     }
