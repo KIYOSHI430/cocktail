@@ -918,6 +918,42 @@ async function adminUsers(payload, token, me) {
   });
 }
 
+/**
+ * 完整备份：把数据库里所有表原样导出成一份 JSON，管理员下载保存。
+ * 免费版数据库没有自动备份，用这个功能定期手动存一份就不会丢数据。
+ */
+async function exportBackup(payload, token, me) {
+  if (!me || me.role !== "admin") return fail("只有管理员可以导出备份");
+  const [users, ingredients, recipes, posts, comments, reports, settings] = await Promise.all([
+    dbSelect("users", [], { limit: 5000 }),
+    dbSelect("ingredients", [], { limit: 5000 }),
+    dbSelect("recipes", [], { limit: 5000 }),
+    dbSelect("posts", [], { order: "created_at", asc: false, limit: 5000 }),
+    dbSelect("comments", [], { order: "created_at", asc: false, limit: 20000 }),
+    dbSelect("reports", [], { limit: 5000 }),
+    getSettings()
+  ]);
+  const out = {
+    kind: "cocktail-backup", version: 2, source: "cloud",
+    exportedAt: new Date().toISOString(),
+    counts: {
+      users: users.length, ingredients: ingredients.length, recipes: recipes.length,
+      posts: posts.length, comments: comments.length, reports: reports.length
+    },
+    settings: settings,
+    users: users, ingredients: ingredients, recipes: recipes,
+    posts: posts, comments: comments, reports: reports
+  };
+  /* 帖子里的图片是 base64 存在数据库里的，图片多了整包会很大、
+     可能超过云函数返回体积上限，所以太大时只保留文字部分并做个标记。 */
+  if (JSON.stringify(out).length > 4e6) {
+    out.posts = posts.map(function (p) { return Object.assign({}, p, { images: [] }); });
+    out.imagesOmitted = true;
+    out.note = "帖子图片太大，这次备份没有包含图片，正文和其余数据都在。";
+  }
+  return ok(out);
+}
+
 /* ---------------- 入口 ----------------
    新版云开发控制台创建的是「HTTP 函数」：需要一个监听端口的 HTTP 服务
    （模板 HTTP Node.js Hello World 的 scf_bootstrap 就是执行 node index.js，端口 9000）。
@@ -952,7 +988,8 @@ const HANDLERS = {
   listReports: listReports,
   updateReport: updateReport,
   updateSettings: updateSettings,
-  adminUsers: adminUsers
+  adminUsers: adminUsers,
+  exportBackup: exportBackup
 };
 
 /** 统一的处理入口：返回 { ok, data } 或 { ok:false, msg } */

@@ -145,6 +145,8 @@
 
   function renderHeader() {
     var me = Store.currentUser();
+    var foot = document.getElementById("footData");
+    if (foot) foot.textContent = Store.cloudOn() ? "数据存储在云端" : "数据保存在本机浏览器";
     var box = document.getElementById("userBox");
     if (me) {
       box.innerHTML =
@@ -1813,6 +1815,27 @@
   }
 
   function adminDataHTML() {
+    var stats = '<div class="stats-row">' +
+      statBox(Store.listRecipes().length, "款配方") +
+      statBox(Store.listIngredients().length, "种材料") +
+      statBox(Store.users().length, "个账号") +
+      statBox(Store.adminComments({}).length, "条评论") + "</div>";
+
+    /* 云端模式：数据在云数据库里，免费版没有自动备份 —— 强调手动下载 */
+    if (Store.cloudOn()) {
+      return "<h3>数据备份</h3>" +
+        '<p class="mute-text">所有数据都在腾讯云数据库里。免费版没有「自动备份」，所以建议<b>每隔一两周点一次下面的按钮</b>，把备份文件存到电脑或网盘。' +
+        '哪天数据真出了问题，有这份文件就能把内容找回来。</p>' +
+        '<div class="row tight">' +
+          '<button class="btn" data-action="export-data">下载完整备份（JSON）</button>' +
+        "</div>" +
+        '<p class="mute-text">备份文件里包含<b>全部账号信息</b>（密码是加密后的，看不到明文），所以别发到群里或公开的地方，自己存好。' +
+        '帖子图片是直接存在数据库里的，帖子多、图多的时候文件会比较大，属于正常。</p>' +
+        stats +
+        "<h3>本机缓存</h3>" +
+        '<p class="mute-text">浏览器里另存了一份缓存，只是为了让页面打开快一点，不是真正的数据源。清掉、换电脑都不影响，下次打开会自动从云端重新拉取。</p>';
+    }
+
     var s = JSON.parse(Store.exportJSON());
     return "<h3>数据备份与还原</h3>" +
       '<p class="mute-text">所有数据都保存在这台电脑的浏览器里。换电脑、清缓存前，记得先导出一份 JSON 备份。</p>' +
@@ -2410,12 +2433,20 @@
         toast("已删除"); refreshAdmin(); break;
       }
       case "export-data": {
-        var blob = new Blob([Store.exportJSON()], { type: "application/json" });
-        var a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = "cocktail-backup-" + Store.nowISO() + ".json";
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        toast("已导出备份文件");
+        var isCloud = Store.cloudOn();
+        toast(isCloud ? "正在从云端打包备份，稍等…" : "正在生成备份…");
+        Store.exportBackup(function (res) {
+          if (!res || !res.ok) { toast((res && res.msg) || "备份失败"); return; }
+          var blob = new Blob([res.json], { type: "application/json" });
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = res.filename;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          var extra = res.counts
+            ? "（" + res.counts.recipes + " 款配方 / " + res.counts.users + " 个账号 / " + res.counts.posts + " 篇帖子）"
+            : "";
+          toast("备份已下载" + extra + "，请存到电脑或网盘");
+        });
         break;
       }
       case "reset-data": {

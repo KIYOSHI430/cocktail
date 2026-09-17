@@ -2026,6 +2026,26 @@
     return JSON.stringify(state, null, 2);
   }
 
+  /**
+   * 导出备份。
+   *   云端模式：让云函数把数据库整包吐出来（含账号，只有管理员能拿），下载成文件。
+   *   本地模式：导出这台电脑浏览器里的数据。
+   * 免费版数据库没有自动备份，靠这个手动存一份。
+   */
+  function exportBackup(cb) {
+    var stamp = nowISO().slice(0, 10);
+    var filename = "cocktail-backup-" + stamp + ".json";
+    if (cloudOn()) {
+      cloudCall("exportBackup").then(function (res) {
+        if (!res.ok) { if (cb) cb({ ok: false, msg: res.msg }); return; }
+        if (cb) cb({ ok: true, filename: filename, json: JSON.stringify(res.data, null, 2), counts: res.data.counts });
+      });
+      return { ok: true, pending: true };
+    }
+    if (cb) cb({ ok: true, filename: filename, json: exportJSON() });
+    return { ok: true };
+  }
+
   function importJSON(text) {
     try {
       var parsed = JSON.parse(text);
@@ -2185,6 +2205,7 @@
     getSettings: getSettings,
     updateSettings: updateSettings,
     exportJSON: exportJSON,
+    exportBackup: exportBackup,
     importJSON: importJSON,
     resetAll: resetAll
   };
