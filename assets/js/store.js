@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "cocktail_app_v1";
-  var DATA_VERSION = 5;   // v5：新增交流区（帖子）与 AI 审核配置
+  var DATA_VERSION = 6;   // v6：帖子加酒款标签与收藏
   var state = null;
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -47,6 +47,7 @@
         content: p.content,
         images: [],
         category: p.category || "闲聊",
+        recipeTags: (p.recipeTags || []).slice(0, 3),
         authorId: a.id, username: a.username, nickname: a.nickname || a.username,
         createdAt: new Date(now - (p.hoursAgo || 0) * 3600 * 1000).toISOString(),
         status: "approved",
@@ -65,6 +66,7 @@
 
   function normalizeUser(u) {
     u.favorites = u.favorites || [];
+    u.postFavorites = u.postFavorites || [];
     u.myIngredients = u.myIngredients || [];
     u.nickname = u.nickname || u.username;
     u.intro = u.intro || "";
@@ -168,6 +170,13 @@
     if (!Array.isArray(s.comments)) s.comments = seedComments();
     if (!Array.isArray(s.reports)) s.reports = [];
     if (!Array.isArray(s.posts)) s.posts = seedPosts();
+    else {
+      // 升级时把新增的示例帖补进去（按标题去重，不会重复添加）
+      var titles = {};
+      s.posts.forEach(function (p) { titles[p.title] = true; });
+      seedPosts().forEach(function (p) { if (!titles[p.title]) s.posts.push(p); });
+      s.posts.forEach(function (p) { if (!Array.isArray(p.recipeTags)) p.recipeTags = []; });
+    }
     if (typeof s.dailyOverride === "undefined") s.dailyOverride = null;
 
     // 站点更名：只有还停留在旧名字时才跟着改，你自己设过的名字不会被覆盖
@@ -191,6 +200,7 @@
           state.reports = state.reports || [];
           state.posts = state.posts || [];
           state.dailyOverride = state.dailyOverride || null;
+          state.posts.forEach(function (p) { if (!Array.isArray(p.recipeTags)) p.recipeTags = []; });
           state.users.forEach(normalizeUser);
           state.recipes.forEach(normalizeRecipe);
           if (oldVersion < DATA_VERSION) persist();
@@ -830,6 +840,17 @@
 
   function postCategories() { return POST_CATEGORIES.slice(); }
 
+  /** 帖子里挂的「调的是什么酒」标签：最多 3 个，必须是真实存在的配方 */
+  function cleanRecipeTags(ids) {
+    var out = [];
+    (Array.isArray(ids) ? ids : []).forEach(function (id) {
+      if (out.length >= 3) return;
+      if (out.indexOf(id) >= 0) return;
+      if (getRecipe(id)) out.push(id);
+    });
+    return out;
+  }
+
   function addPost(data) {
     var me = currentUser();
     if (!me) return { ok: false, msg: "请先登录后再发帖" };
@@ -852,6 +873,7 @@
       content: content,
       images: Array.isArray(data.images) ? data.images.slice(0, 6) : [],
       category: POST_CATEGORIES.indexOf(data.category) >= 0 ? data.category : "闲聊",
+      recipeTags: cleanRecipeTags(data.recipeTags),
       authorId: me.id, username: me.username, nickname: me.nickname || me.username,
       createdAt: new Date().toISOString(),
       status: status,
@@ -909,6 +931,13 @@
     if (options.status && options.status !== "all") list = list.filter(function (p) { return p.status === options.status; });
     if (options.category && options.category !== "全部") list = list.filter(function (p) { return p.category === options.category; });
     if (options.authorId) list = list.filter(function (p) { return p.authorId === options.authorId; });
+    if (options.recipeTag) {
+      list = list.filter(function (p) { return (p.recipeTags || []).indexOf(options.recipeTag) >= 0; });
+    }
+    if (options.onlyFav) {
+      var favs = me ? (me.postFavorites || []) : [];
+      list = list.filter(function (p) { return favs.indexOf(p.id) >= 0; });
+    }
     var q = String(options.q || "").trim().toLowerCase();
     if (q) {
       list = list.filter(function (p) {
@@ -923,8 +952,11 @@
     }
     var sort = options.sort || "new";
     list.sort(function (a, b) {
-      if (sort === "hot") return (b.likes || []).length - (a.likes || []).length;
-      return String(b.createdAt).localeCompare(String(a.createdAt));
+      if (sort === "hot") {
+        var d = postHeat(b) - postHeat(a);
+        if (d) return d;
+      }
+      return String(b.createdAt).localeCompare(String(a.createdAt));   // 时间倒序兜底
     });
     return list.map(function (p) {
       var out = Object.assign({}, p);
@@ -932,9 +964,48 @@
       out.liked = !!(me && (p.likes || []).indexOf(me.id) >= 0);
       out.mine = !!(me && p.authorId === me.id);
       out.commentCount = (p.comments || []).length;
+      out.heat = postHeat(p);
+      out.faved = !!(currentUser() && (currentUser().postFavorites || []).indexOf(p.id) >= 0);
+      out.recipeTags = p.recipeTags || [];
       out.isAdminAuthor = (state.users.filter(function (u) { return u.id === p.authorId; })[0] || {}).role === "admin";
       return out;
     });
+  }
+
+  /** 热度 = 点赞 3 分 + 回复 2 分 + 浏览 0.2 分，越新越占优 */
+  function postHeat(p) {
+    var likes = (p.likes || []).length;
+    var comments = (p.comments || []).length;
+    var views = p.views || 0;
+    return likes * 3 + comments * 2 + views * 0.2;
+  }
+
+  /* 帖子收藏 */
+  function isPostFavorite(id) {
+    var me = currentUser();
+    if (!me) return false;
+    return (me.postFavorites || []).indexOf(id) >= 0;
+  }
+
+  function togglePostFavorite(id) {
+    var me = currentUser();
+    if (!me) return { ok: false, msg: "登录后才能收藏帖子" };
+    if (!state.posts.some(function (p) { return p.id === id; })) return { ok: false, msg: "帖子不存在" };
+    me.postFavorites = me.postFavorites || [];
+    var i = me.postFavorites.indexOf(id);
+    if (i >= 0) me.postFavorites.splice(i, 1); else me.postFavorites.push(id);
+    persist();
+    return { ok: true, faved: i < 0 };
+  }
+
+  /** 某款酒下有多少帖子、最近几条（配方页讨论区用） */
+  function postsByRecipe(recipeId, limit) {
+    var list = listPosts({ status: "all", sort: "hot", recipeTag: recipeId });
+    return typeof limit === "number" ? list.slice(0, limit) : list;
+  }
+
+  function countPostsByRecipe(recipeId) {
+    return postsByRecipe(recipeId).length;
   }
 
   function getPost(id) {
@@ -1528,6 +1599,11 @@
     setPostStatus: setPostStatus,
     deletePost: deletePost,
     postStats: postStats,
+    postHeat: postHeat,
+    isPostFavorite: isPostFavorite,
+    togglePostFavorite: togglePostFavorite,
+    postsByRecipe: postsByRecipe,
+    countPostsByRecipe: countPostsByRecipe,
     ruleReview: ruleReview,
     aiReviewPost: aiReviewPost,
     aiReviewEndpoint: aiReviewEndpoint,

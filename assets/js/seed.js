@@ -1489,6 +1489,20 @@ window.SEED = {
       title: "喝了二十来款经典之后，按难度排个序",
       content: "按新手友好程度排的，个人感受：\n1. 金汤力 / 自由古巴 —— 基本不会失败\n2. 威士忌高球 / 莫斯科骡子 —— 注意比例就行\n3. 莫吉托 / 龙舌兰日出 —— 多两步但很快\n4. 酸类（威士忌酸、代基里、玛格丽特）—— 摇匀是关键\n5. 搅拌类（马天尼、尼格罗尼）—— 冰和水比最难把握\n\n大家觉得呢？",
       category: "心得", authorKey: "demo", hoursAgo: 30, likes: ["u-admin", "u-demo"]
+    },
+    {
+      title: "莫吉托的薄荷老是捣苦，求正确手法",
+      content: "每次按教程压薄荷，做出来总有一股苦涩味。\n\n是不是我压太狠了？大家一般压几下、用多少薄荷？",
+      category: "求助", authorKey: "demo", hoursAgo: 3, likes: ["u-admin"],
+      recipeTags: ["mojito"],
+      comments: [
+        { authorKey: "admin", content: "轻压两下出香就够了，压碎叶子就会发苦。另外薄荷最后再加一把会更清爽。", hoursAgo: 2 }
+      ]
+    },
+    {
+      title: "尼格罗尼试了三种比例，说说感受",
+      content: "1:1:1 是标准版，苦味比较冲；\n1:1:0.5（少放味美思）更硬朗适合老手；\n1:0.75:1 甜一点，新手会更容易接受。\n\n大家平时用哪种？",
+      category: "心得", authorKey: "admin", hoursAgo: 12, likes: ["u-demo"], recipeTags: ["negroni"]
     }
   ]
 };

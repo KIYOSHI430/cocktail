@@ -18,8 +18,9 @@
   var modalTags = [];
   var tagFilter = { tags: [], mode: "all" };
   var deckState = { i: 0, drag: 0, picks: [], salt: "" };
-  var postState = { category: "全部", sort: "new", q: "" };
+  var postState = { category: "全部", sort: "new", q: "", recipeTag: "", onlyFav: false };
   var postDraftImages = [];
+  var postDraftTags = [];
   var matchQuery = "";
   var editingIngredientId = null;
   var authMode = "login";
@@ -111,7 +112,13 @@
     toggleMenu(false);
     switch (r.name) {
       case "recipe": renderRecipeDetail(r.params[0]); break;
-      case "posts": renderPosts(); break;
+      case "posts": {
+        // #/posts/recipe/<id> 表示只看某杯酒相关的帖子
+        postState.recipeTag = (r.params[0] === "recipe" && r.params[1]) ? r.params[1] : "";
+        postState.onlyFav = false;
+        renderPosts();
+        break;
+      }
       case "post": renderPostDetail(r.params[0]); break;
       case "home": renderHome(); break;
       case "tags": {
@@ -275,12 +282,20 @@
     var cover = p.images && p.images.length
       ? '<img class="post-thumb" src="' + esc(p.images[0]) + '" alt="" loading="lazy" onerror="this.classList.add(\'failed\')">'
       : "";
+    var recipeTags = (p.recipeTags || []).map(function (rid) {
+      var r = Store.getRecipe(rid);
+      if (!r) return "";
+      return '<button class="tag-mini" data-action="post-tag" data-value="' + rid + '" title="看关于这杯酒的帖子">' + esc(r.name) + "</button>";
+    }).join("");
     return '<article class="post-card" data-action="open-post" data-id="' + p.id + '">' +
       cover +
       '<div class="post-main">' +
-        '<div class="post-top"><span class="post-cat">' + esc(p.category) + "</span>" + postStatusBadge(p) + "</div>" +
+        '<div class="post-top"><span class="post-cat">' + esc(p.category) + "</span>" + postStatusBadge(p) +
+          '<button class="post-fav' + (p.faved ? " on" : "") + '" data-action="post-fav" data-id="' + p.id + '" title="收藏帖子">' + (p.faved ? "★" : "☆") + "</button>" +
+        "</div>" +
         "<h3>" + esc(p.title) + "</h3>" +
         '<p class="post-excerpt">' + esc(excerpt) + (p.content.length > 90 ? "…" : "") + "</p>" +
+        (recipeTags ? '<div class="card-tags post-tags">' + recipeTags + "</div>" : "") +
         '<div class="post-foot"><span>' + esc(p.nickname) + " · " + timeAgo(p.createdAt) + "</span>" +
           "<span>赞 " + p.likeCount + " · 回复 " + p.commentCount + "</span></div>" +
       "</div></article>";
@@ -289,16 +304,23 @@
   function renderPosts() {
     var me = Store.currentUser();
     var cats = ["全部"].concat(Store.postCategories());
+    var tagRecipe = postState.recipeTag ? Store.getRecipe(postState.recipeTag) : null;
     view.innerHTML =
       '<section class="page-head"><h1>交流区</h1><p>配方之外的地方：求推荐、问问题、晒作品、聊器材。发出去的内容会先过一遍审核（明显广告和违规会被拦下）。</p></section>' +
+      (tagRecipe
+        ? '<div class="tag-filter-bar">正在看关于「<b>' + esc(tagRecipe.name) + "</b>」的帖子" +
+          '<button class="link-btn" data-action="post-tag-clear">查看全部帖子</button></div>'
+        : "") +
       '<section class="toolbar filter-bar">' +
         '<input id="postSearch" class="input search" type="search" placeholder="搜索帖子标题、内容或作者" value="' + esc(postState.q) + '">' +
         '<div class="chips">' + cats.map(function (c) {
           return '<button class="chip ' + (postState.category === c ? "on" : "") + '" data-action="post-cat" data-value="' + esc(c) + '">' + esc(c) + "</button>";
-        }).join("") + "</div>" +
+        }).join("") +
+        '<button class="chip ' + (postState.onlyFav ? "on" : "") + '" data-action="post-fav-filter">★ 我收藏的帖子</button>' +
+        "</div>" +
         '<div class="toolbar-right">' +
           '<select id="postSort" class="input select">' +
-            option("new", "最新发布", postState.sort) + option("hot", "最多点赞", postState.sort) +
+            option("new", "按时间（最新）", postState.sort) + option("hot", "按热度（最热）", postState.sort) +
           "</select>" +
           '<button class="btn" data-action="new-post">我要发帖</button>' +
         "</div>" +
@@ -310,7 +332,8 @@
 
   function refreshPostList() {
     var list = Store.listPosts({
-      category: postState.category, sort: postState.sort, status: "all", q: postState.q
+      category: postState.category, sort: postState.sort, status: "all", q: postState.q,
+      recipeTag: postState.recipeTag, onlyFav: postState.onlyFav
     });
     renderPostList(list);
   }
@@ -325,11 +348,12 @@
       : '<div class="empty">还没有帖子。<br><span class="mute-text">点右上角「我要发帖」，来做第一个开口的人。</span></div>';
   }
 
-  function openPostEditor() {
+  function openPostEditor(presetRecipeId) {
     var me = Store.currentUser();
     if (!me) { toast("登录后就能发帖"); authModal("login"); return; }
     if (!Store.can("post")) { toast("管理员暂时关闭了发帖"); return; }
     postDraftImages = [];
+    postDraftTags = presetRecipeId && Store.getRecipe(presetRecipeId) ? [presetRecipeId] : [];
     openModal(
       "<h2>发帖</h2>" +
       '<form id="postForm" class="form">' +
@@ -338,6 +362,10 @@
         "</select></label>" +
         '<label class="field"><span>标题 *</span><input class="input" name="title" maxlength="40" placeholder="一句话说清楚你想聊什么"></label>' +
         '<label class="field"><span>正文 *</span><textarea class="input" name="content" rows="6" maxlength="2000" placeholder="详细说说：你手头有什么、试过什么、想解决什么问题"></textarea></label>' +
+        '<label class="field"><span>调的是哪杯酒<em class="opt">选填，最多 3 个</em></span>' +
+          '<input class="input" id="postTagSearch" placeholder="搜酒名，比如：尼格罗尼（带上标签后，这杯酒的配方页会显示你的帖子）"></label>' +
+        '<div class="tag-results" id="postTagResults"></div>' +
+        '<div class="tag-chosen" id="postTagChosen"></div>' +
         '<label class="field"><span>配图<em class="opt">选填，最多 6 张</em></span>' +
           '<input class="input" type="file" id="postImages" accept="image/*" multiple></label>' +
         '<div class="img-grid" id="postImagePreview"></div>' +
@@ -347,6 +375,31 @@
       "</form>"
     );
     renderPostImagePreview();
+    renderPostTagPicker();
+  }
+
+  /** 发帖时选「这杯酒」标签 */
+  function renderPostTagPicker(keyword) {
+    var chosen = document.getElementById("postTagChosen");
+    var results = document.getElementById("postTagResults");
+    if (chosen) {
+      chosen.innerHTML = postDraftTags.map(function (rid) {
+        var r = Store.getRecipe(rid);
+        return '<span class="tag-pill on">' + esc(r ? r.name : rid) +
+          '<button type="button" class="tag-x" data-action="post-tag-remove" data-value="' + rid + '">×</button></span>';
+      }).join("");
+    }
+    if (!results) return;
+    var q = String(keyword || "").trim();
+    if (!q) { results.innerHTML = ""; return; }
+    var list = Store.searchRecipes({ q: q, sort: "hot" }).slice(0, 6);
+    results.innerHTML = list.length
+      ? list.map(function (r) {
+          var on = postDraftTags.indexOf(r.id) >= 0;
+          return '<button type="button" class="tag-result' + (on ? " on" : "") + '" data-action="post-tag-add" data-value="' + r.id + '">' +
+            esc(r.name) + (r.en ? ' <em>' + esc(r.en) + "</em>" : "") + (on ? " ✓" : "") + "</button>";
+        }).join("")
+      : '<span class="mute-text">没找到这杯酒，可以去配方库看看叫什么名字</span>';
   }
 
   /** 一次可以选多张，逐张压缩后追加 */
@@ -383,10 +436,11 @@
     var fd = new FormData(form);
     var res = Store.addPost({
       title: fd.get("title"), content: fd.get("content"), category: fd.get("category"),
-      images: postDraftImages.slice()
+      images: postDraftImages.slice(), recipeTags: postDraftTags.slice()
     });
     if (!res.ok) { toast(res.msg); return; }
     postDraftImages = [];
+    postDraftTags = [];
     closeModal();
     if (res.post.status === "rejected") {
       toast("内容没通过审核：" + res.post.rejectReason);
@@ -419,6 +473,11 @@
       ? '<p class="mute-text">审核依据：' + esc(p.review.reasons.join("；")) +
         (p.review.source === "ai" ? "（AI 模型：" + esc(p.review.model || "ai") + "，风险分 " + p.review.risk + "）" : "（规则检查，风险分 " + p.review.risk + "）") + "</p>"
       : "";
+    var recipeTags = (p.recipeTags || []).map(function (rid) {
+      var r = Store.getRecipe(rid);
+      if (!r) return "";
+      return '<a class="tag-pill" href="#/recipe/' + rid + '">' + esc(r.emoji || "") + " " + esc(r.name) + "</a>";
+    }).join("");
 
     view.innerHTML =
       '<a class="back" href="#/posts">← 返回交流区</a>' +
@@ -427,12 +486,14 @@
         "<h1>" + esc(p.title) + "</h1>" +
         '<div class="post-meta">' + esc(p.nickname) + (p.isAdminAuthor ? ' <span class="badge role-badge">管理员</span>' : "") +
           " · " + timeAgo(p.createdAt) + " · 浏览 " + (p.views || 0) + "</div>" +
+        (recipeTags ? '<div class="detail-tags">' + recipeTags + "</div>" : "") +
         '<div class="post-body">' + esc(p.content).replace(/\n/g, "<br>") + "</div>" +
         (imgs ? '<div class="post-images">' + imgs + "</div>" : "") +
         (p.status === "rejected" && p.rejectReason ? '<p class="post-reject">未通过原因：' + esc(p.rejectReason) + "</p>" : "") +
         reasons +
         '<div class="detail-actions">' +
           '<button class="btn ' + (p.liked ? "" : "ghost") + '" data-action="post-like" data-id="' + p.id + '">' + (p.liked ? "已赞 " : "赞 ") + p.likeCount + "</button>" +
+          '<button class="btn ' + (p.faved ? "" : "ghost") + '" data-action="post-fav" data-id="' + p.id + '">' + (p.faved ? "★ 已收藏" : "☆ 收藏帖子") + "</button>" +
           (canMod ? '<button class="btn ghost danger" data-action="post-del" data-id="' + p.id + '">删除</button>' : "") +
         "</div>" +
       "</article>" +
@@ -809,7 +870,25 @@
       '<section class="panel comments" id="comments">' +
         '<div id="commentComposer"></div>' +
         '<div id="commentListWrap"></div>' +
-      "</section>";
+      "</section>" +
+      (function () {
+        // 配方页最下方：关于这杯酒的帖子
+        var posts = Store.postsByRecipe(id, 3);
+        var total = Store.countPostsByRecipe(id);
+        return '<section class="panel recipe-posts">' +
+          '<div class="panel-head">' +
+            '<div><span class="kicker">讨论区 · DISCUSSION</span>' +
+            "<h2>关于「" + esc(r.name) + "」的讨论 <span class=\"count\">" + total + "</span></h2></div>" +
+            '<div class="chips">' +
+              '<button class="chip" data-action="new-post" data-id="' + r.id + '">就这杯酒发帖</button>' +
+              (total > 3 ? '<a class="chip" href="#/posts/recipe/' + r.id + '">查看全部 ' + total + " 条</a>" : "") +
+            "</div>" +
+          "</div>" +
+          (posts.length
+            ? '<div class="post-list">' + posts.map(postCardHTML).join("") + "</div>"
+            : '<div class="empty sm">还没有人聊这杯酒。<br><span class="mute-text">点「就这杯酒发帖」，发帖时会自动带上这杯酒的标签。</span></div>') +
+          "</section>";
+      })();
 
     if (commentState.recipeId !== id) {
       commentState = { recipeId: id, sort: "hot", page: 1, replyTo: null };
@@ -1342,6 +1421,7 @@
     var mine = Store.listRecipes().filter(function (r) { return r.authorId === me.id; });
     var mineIngs = Store.getMyIngredients().map(function (id) { return Store.getIngredient(id); }).filter(Boolean);
     var myComments = Store.adminComments({}).filter(function (c) { return c.userId === me.id; });
+    var myFavPosts = Store.listPosts({ status: "all", onlyFav: true, sort: "new" });
 
     view.innerHTML =
       '<section class="page-head"><h1>我的</h1><p>' + esc(me.nickname || me.username) + " · " + Store.roleLabel() + " · 注册于 " + esc(me.createdAt) + "</p></section>" +
@@ -1369,7 +1449,12 @@
         (myComments.length ? '<ul class="my-comments">' + myComments.slice(0, 20).map(function (c) {
           return '<li><a href="#/recipe/' + c.recipeId + '">' + esc(c.recipeName) + "</a> " +
             '<span class="mute-text">' + timeAgo(c.createdAt) + "</span><div>" + esc(c.content) + "</div></li>";
-        }).join("") + "</ul>" : '<div class="empty sm">还没发过评论</div>') + "</section>";
+        }).join("") + "</ul>" : '<div class="empty sm">还没发过评论</div>') + "</section>" +
+
+      '<section class="panel"><h3>收藏的帖子 <span class="mute-text">（' + myFavPosts.length + " 篇）</span></h3>" +
+        (myFavPosts.length
+          ? '<div class="post-list">' + myFavPosts.map(postCardHTML).join("") + "</div>"
+          : '<div class="empty sm">还没收藏帖子，在交流区看到有用的点 ☆</div>') + "</section>";
   }
 
   /* ---------------- 视图六：管理后台 ---------------- */
@@ -1779,7 +1864,32 @@
       case "deck-dot": deckState.i = Number(value) || 0; deckState.drag = 0; applyDeck(); break;
 
       /* 交流区 */
-      case "new-post": openPostEditor(); break;
+      case "new-post": openPostEditor(id || null); break;
+      case "post-tag": go("#/posts/recipe/" + value); break;
+      case "post-tag-clear": go("#/posts"); break;
+      case "post-fav-filter": postState.onlyFav = !postState.onlyFav; renderPosts(); break;
+      case "post-fav": {
+        var pf = Store.togglePostFavorite(id);
+        if (!pf.ok) { toast(pf.msg); authModal("login"); return; }
+        toast(pf.faved ? "已收藏这篇帖子" : "已取消收藏");
+        if (currentRoute().name === "post") renderPostDetail(id);
+        else refreshPostList();
+        break;
+      }
+      case "post-tag-add": {
+        if (postDraftTags.indexOf(value) >= 0) break;
+        if (postDraftTags.length >= 3) { toast("最多关联 3 杯酒"); break; }
+        postDraftTags.push(value);
+        var tInput = document.getElementById("postTagSearch");
+        if (tInput) tInput.value = "";
+        renderPostTagPicker("");
+        break;
+      }
+      case "post-tag-remove": {
+        postDraftTags = postDraftTags.filter(function (x) { return x !== value; });
+        renderPostTagPicker("");
+        break;
+      }
       case "post-img-remove": {
         postDraftImages.splice(Number(el.getAttribute("data-idx")), 1);
         renderPostImagePreview();
@@ -2300,6 +2410,8 @@
     } else if (t.id === "postSearch") {
       postState.q = t.value;
       refreshPostList();
+    } else if (t.id === "postTagSearch") {
+      renderPostTagPicker(t.value);
     } else if (t.id === "postAdminQ") {
       postAdminFilter.q = t.value;
       var pbox = document.getElementById("adminPostList");

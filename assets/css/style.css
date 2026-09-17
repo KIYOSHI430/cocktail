@@ -779,6 +779,46 @@ mark {
 }
 .post-foot span:last-child { color: var(--amber-2); opacity: .85; }
 
+.post-fav {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  font-size: 15px; color: var(--text-2); padding: 0 2px; line-height: 1;
+}
+.post-fav.on { color: var(--amber-2); }
+.post-fav:hover { color: var(--amber-2); }
+.post-tags { margin: 0 0 10px; }
+
+/* 关联酒款的筛选条 */
+.tag-filter-bar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 12px 16px; margin-bottom: 16px; border-radius: 10px; font-size: 13.5px;
+  background: rgba(216, 185, 113, .06); border: 1px solid var(--hair); color: var(--text-2);
+}
+.tag-filter-bar b { color: var(--amber-2); font-weight: 600; }
+
+/* 发帖时的酒款标签选择器 */
+.tag-results { display: flex; flex-wrap: wrap; gap: 8px; margin: -4px 0 10px; }
+.tag-result {
+  font-family: inherit; cursor: pointer; font-size: 13px; padding: 6px 12px;
+  border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text-2);
+}
+.tag-result:hover { border-color: var(--amber); color: var(--amber-2); }
+.tag-result.on { border-color: var(--amber); color: var(--amber-2); }
+.tag-result em { font-style: normal; opacity: .6; font-size: 11px; }
+.tag-chosen { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; }
+.tag-chosen .tag-pill { cursor: default; display: inline-flex; align-items: center; gap: 6px; }
+.tag-x {
+  background: none; border: none; cursor: pointer; color: inherit;
+  font-size: 13px; line-height: 1; padding: 0; opacity: .7;
+}
+.tag-x:hover { opacity: 1; }
+
+.recipe-posts { margin-top: 18px; }
+.recipe-posts .panel-head h2 { display: flex; align-items: center; gap: 8px; }
+.recipe-posts .count {
+  font-size: 12px; color: var(--text-2); background: var(--panel-2);
+  padding: 1px 9px; border-radius: 999px; letter-spacing: .06em;
+}
+
 .home-posts { border-top: 1px solid var(--hair); padding-top: 24px; margin-top: 30px; }
 .home-posts .panel-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
 .home-posts h2 { font-family: var(--serif); font-size: 21px; font-weight: 500; letter-spacing: .05em; margin: 6px 0 16px; }
