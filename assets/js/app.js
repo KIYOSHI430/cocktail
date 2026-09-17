@@ -103,6 +103,7 @@
   function render() {
     var r = currentRoute();
     window.scrollTo({ top: 0 });
+    toggleMenu(false);
     switch (r.name) {
       case "recipe": renderRecipeDetail(r.params[0]); break;
       case "tags": {
@@ -139,6 +140,35 @@
     }
     var adminLink = document.querySelector('[data-nav="admin"]');
     if (adminLink) adminLink.classList.toggle("hidden", !(me && me.role === "admin"));
+
+    // 手机端抽屉菜单（顶栏在窄屏会把导航收进这里）
+    var drawerNav = document.getElementById("drawerNav");
+    var drawerUser = document.getElementById("drawerUser");
+    if (drawerNav) {
+      var items = [
+        ["recipes", "#/recipes", "🍸", "配方库", "全部酒谱"],
+        ["tags", "#/tags", "🎯", "想喝啥", "按口味点单"],
+        ["match", "#/match", "🧊", "我有啥", "看材料配酒"],
+        ["new", "#/new", "➕", "添加配方", "分享你的特调"],
+        ["me", "#/me", "👤", "我的", "收藏与资料"]
+      ];
+      if (me && me.role === "admin") items.push(["admin", "#/admin", "⚙️", "管理后台", "材料 / 评论 / 用户"]);
+      var route = currentRoute().name;
+      drawerNav.innerHTML = items.map(function (it) {
+        return '<a href="' + it[1] + '" data-action="close-menu" class="' + (route === it[0] ? "on" : "") + '">' +
+          '<span class="di">' + it[2] + '</span><span class="dt">' + esc(it[3]) + "<em>" + esc(it[4]) + "</em></span></a>";
+      }).join("");
+    }
+    if (drawerUser) {
+      drawerUser.innerHTML = me
+        ? '<div class="du-info"><b>' + esc(me.nickname || me.username) + "</b>" +
+          '<span class="mute-text">' + Store.roleLabel() + "</span></div>" +
+          '<button class="btn ghost sm" data-action="logout">退出登录</button>'
+        : '<div class="du-info"><b>还没登录</b><span class="mute-text">登录后可以发配方、评论、收藏</span></div>' +
+          '<div class="du-btns"><button class="btn sm" data-action="open-register">注册</button>' +
+          '<button class="btn ghost sm" data-action="open-login">登录</button></div>';
+    }
+
     var name = Store.getSettings().siteName || "鸡尾酒法典";
     var brandText = document.querySelector(".brand-text");
     if (brandText) brandText.innerHTML = esc(name) + "<em>" + esc(Store.getSettings().slogan || "调酒灵感") + "</em>";
@@ -148,6 +178,15 @@
     document.querySelectorAll("#mainNav a").forEach(function (a) {
       a.classList.toggle("active", a.getAttribute("data-nav") === route);
     });
+  }
+
+  function toggleMenu(force) {
+    var el = document.getElementById("mobileDrawer");
+    if (!el) return;
+    var open = typeof force === "boolean" ? force : !el.classList.contains("open");
+    if (open) renderHeader();   // 每次打开前刷新内容（登录状态、管理员入口可能变了）
+    el.classList.toggle("open", open);
+    document.body.classList.toggle("menu-open", open);
   }
 
   /* ---------------- 卡片 ---------------- */
@@ -741,7 +780,7 @@
         "</div>" +
         '<div class="row">' +
           '<label class="field"><span>类型 *</span><select class="input" name="type"><option value="classic">经典鸡尾酒</option><option value="custom" selected>特调</option></select></label>' +
-          '<label class="field"><span>图标 emoji</span><input class="input" name="emoji" placeholder="🍹" maxlength="4"></label>' +
+          '<label class="field"><span>图标 emoji<em class="opt">选填</em></span><input class="input" name="emoji" placeholder="留空就自动挑一个" maxlength="4"></label>' +
           '<label class="field"><span>杯型</span><input class="input" name="glass" placeholder="高球杯 / 马天尼杯"></label>' +
           '<label class="field"><span>酒感</span><input class="input" name="abv" placeholder="低 / 中 / 高"></label>' +
         "</div>" +
@@ -842,9 +881,15 @@
     if (!steps.length) { toast("请把调酒步骤写一下（一行一步）"); return; }
     if (!draftTags.length) { toast("至少选一个口味标签"); return; }
     if (!image) { toast("请上传一张配方图片，或贴一个图片链接"); return; }
+    // emoji 选填：没填就用第一个材料的图标，再不行用默认酒杯
+    var emoji = String(fd.get("emoji") || "").trim();
+    if (!emoji) {
+      var firstIng = Store.getIngredient(draft.ingredients[0] && draft.ingredients[0].id);
+      emoji = (firstIng && firstIng.emoji) || "🍹";
+    }
     var res = Store.addRecipe({
       name: fd.get("name"), en: fd.get("en"), type: fd.get("type"),
-      emoji: fd.get("emoji") || "🍹", glass: fd.get("glass"), abv: fd.get("abv"),
+      emoji: emoji, glass: fd.get("glass"), abv: fd.get("abv"),
       desc: fd.get("desc"), ingredients: draft.ingredients.slice(),
       steps: steps, video: fd.get("video"), videoName: fd.get("videoName"),
       image: image, tags: draftTags.slice()
@@ -1182,6 +1227,8 @@
     switch (action) {
       case "open-login": authModal("login"); break;
       case "open-register": authModal("register"); break;
+      case "toggle-menu": toggleMenu(); break;
+      case "close-menu": toggleMenu(false); break;
       case "switch-auth": authModal(value); break;
       case "close-modal": closeModal(); break;
       case "logout": Store.logout(); toast("已退出登录"); render(); break;
@@ -1623,5 +1670,12 @@
   Store.init();
   if (!location.hash) location.hash = "#/recipes";
   render();
-  window.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
+  window.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { closeModal(); toggleMenu(false); }
+  });
+  document.addEventListener("click", function (e) {
+    if (!document.body.classList.contains("menu-open")) return;
+    if (e.target.closest(".drawer-panel") || e.target.closest(".menu-btn")) return;
+    toggleMenu(false);
+  });
 })();

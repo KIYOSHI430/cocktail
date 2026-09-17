@@ -24,7 +24,18 @@
       <a href="#/admin" data-nav="admin" class="hidden">管理后台</a>
     </nav>
     <div class="user-box" id="userBox"></div>
+    <button class="menu-btn" data-action="toggle-menu" aria-label="打开菜单">
+      <span></span><span></span><span></span>
+    </button>
   </header>
+
+  <div class="drawer" id="mobileDrawer">
+    <div class="drawer-mask" data-action="close-menu"></div>
+    <div class="drawer-panel">
+      <nav class="drawer-nav" id="drawerNav"></nav>
+      <div class="drawer-user" id="drawerUser"></div>
+    </div>
+  </div>
 
   <main id="view"></main>
 
