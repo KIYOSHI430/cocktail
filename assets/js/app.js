@@ -159,8 +159,12 @@
     }
     var fav = Store.isFavorite(r.id);
     var hl = terms(q || "");
+    var img = r.imageThumb
+      ? '<img class="art-img" src="' + esc(r.imageThumb) + '" alt="' + esc(r.name) + '" loading="lazy" onerror="this.classList.add(\'failed\')">'
+      : "";
     return '<article class="card" data-id="' + r.id + '">' +
       '<div class="card-art" style="' + grad(r.color) + '" data-action="open-recipe" data-id="' + r.id + '">' +
+        img +
         '<span class="emoji">' + esc(r.emoji || "🍹") + "</span>" +
         '<span class="pill ' + (r.type === "classic" ? "cls" : "ctm") + '">' + typeLabel(r.type) + "</span>" +
         '<button class="fav ' + (fav ? "on" : "") + '" data-action="toggle-fav" data-id="' + r.id + '" title="收藏">' + (fav ? "★" : "☆") + "</button>" +
@@ -306,7 +310,11 @@
     view.innerHTML =
       '<a class="back" href="#/recipes">← 返回配方库</a>' +
       '<section class="detail">' +
-        '<div class="detail-hero" style="' + grad(r.color) + '"><span>' + esc(r.emoji || "🍹") + "</span></div>" +
+        '<div class="detail-hero" style="' + grad(r.color) + '">' +
+          (r.image ? '<img class="hero-img" src="' + esc(r.image) + '" alt="' + esc(r.name) + '" onerror="this.classList.add(\'failed\')">' : "") +
+          '<span>' + esc(r.emoji || "🍹") + "</span>" +
+          (me && me.role === "admin" ? '<button class="btn ghost sm hero-change" data-action="set-image" data-id="' + r.id + '">🖼 换图</button>' : "") +
+        "</div>" +
         '<div class="detail-main">' +
           "<h1>" + esc(r.name) + (r.en ? ' <em>' + esc(r.en) + "</em>" : "") + "</h1>" +
           '<div class="tags">' +
@@ -795,20 +803,25 @@
     var rows = list.map(function (r) {
       var status = r.status === "approved" ? '<span class="badge ok">公开</span>'
         : r.status === "pending" ? '<span class="badge warn">待审核</span>' : '<span class="badge no">已下架</span>';
+      var thumb = r.imageThumb
+        ? '<img class="table-thumb" src="' + esc(r.imageThumb) + '" alt="" loading="lazy" onerror="this.classList.add(\'failed\')">'
+        : '<span class="table-thumb none">' + esc(r.emoji || "🍹") + "</span>";
       return "<tr>" +
-        '<td><span class="e">' + esc(r.emoji || "🍹") + "</span> " + esc(r.name) + " <span class=\"mute-text\">" + esc(r.en || "") + "</span></td>" +
+        "<td>" + thumb + " " + esc(r.name) + " <span class=\"mute-text\">" + esc(r.en || "") + "</span></td>" +
         "<td>" + typeLabel(r.type) + "</td>" +
         "<td>" + esc(r.author || "") + "</td>" +
         "<td>" + status + "</td>" +
         "<td>" + Store.countComments(r.id) + "</td>" +
         '<td class="ops">' +
           '<button class="btn ghost sm" data-action="admin-view" data-id="' + r.id + '">查看</button>' +
+          '<button class="btn ghost sm" data-action="set-image" data-id="' + r.id + '">换图</button>' +
           (r.status !== "approved" ? '<button class="btn ghost sm" data-action="approve" data-id="' + r.id + '">通过</button>' : "") +
           (r.status === "approved" ? '<button class="btn ghost sm" data-action="hide" data-id="' + r.id + '">下架</button>' : "") +
           '<button class="btn ghost sm danger" data-action="del-recipe" data-id="' + r.id + '">删除</button>' +
         "</td></tr>";
     }).join("");
-    return "<h3>配方管理 <span class=\"mute-text\">（共 " + list.length + " 款）</span></h3>" +
+    var noImage = list.filter(function (r) { return !r.image; }).length;
+    return "<h3>配方管理 <span class=\"mute-text\">（共 " + list.length + " 款，其中 " + noImage + " 款还没配图）</span></h3>" +
       '<div class="table-wrap"><table class="table"><thead><tr><th>配方</th><th>类型</th><th>作者</th><th>状态</th><th>评论</th><th>操作</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="6">暂无配方</td></tr>') + "</tbody></table></div>";
   }
@@ -955,6 +968,28 @@
     closeModal();
     toast(mode === "login" ? "欢迎回来，" + (res.user.nickname || res.user.username) : "注册成功，欢迎！");
     render();
+  }
+
+  /* ---------------- 图片上传（本地压缩后转 dataURL） ---------------- */
+
+  function downscaleImage(file, maxW, cb) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, maxW / img.width);
+        var canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        try { cb(canvas.toDataURL("image/jpeg", 0.82)); }
+        catch (e) { cb(null); }
+      };
+      img.onerror = function () { cb(null); };
+      img.src = reader.result;
+    };
+    reader.onerror = function () { cb(null); };
+    reader.readAsDataURL(file);
   }
 
   /* ---------------- 随机一杯 ---------------- */
@@ -1131,6 +1166,32 @@
         );
         break;
       }
+      case "set-image": {
+        var ri = Store.getRecipe(id);
+        openModal(
+          "<h2>设置配方图片</h2>" +
+          '<form id="recipeImageForm" class="form" data-id="' + id + '">' +
+            '<div class="img-preview" id="imgPreview">' +
+              (ri && ri.image ? '<img src="' + esc(ri.image) + '" alt="">' : '<span class="mute-text">暂无图片</span>') +
+            "</div>" +
+            '<label class="field"><span>图片链接</span><input class="input" name="url" id="imgUrl" value="' + esc(ri && ri.image ? ri.image : "") + '" placeholder="https://..."></label>' +
+            '<label class="field"><span>或上传本地图片（自动压缩到 1000px 以内）</span><input class="input" type="file" id="imgFile" accept="image/*"></label>' +
+            '<p class="mute-text">建议用 4:3 或 1:1 的图片。目前图片存在浏览器本地，以后接腾讯云开发会改成传到云存储。</p>' +
+            '<div class="form-foot"><button class="btn" type="submit">保存</button>' +
+            '<button type="button" class="btn ghost danger" data-action="clear-image" data-id="' + id + '">清除图片</button>' +
+            '<button type="button" class="btn ghost" data-action="close-modal">取消</button></div>' +
+          "</form>"
+        );
+        break;
+      }
+      case "clear-image": {
+        if (!confirm("确定清除这张图片吗？会回退成 emoji 卡片。")) break;
+        Store.setRecipeImage(id, "");
+        closeModal();
+        toast("已清除图片");
+        if (currentRoute().name === "admin") refreshAdmin(); else render();
+        break;
+      }
       case "delete-recipe": {
         if (!confirm("确定删除这款配方吗？删除后无法恢复。")) break;
         var d = Store.deleteRecipe(id);
@@ -1275,6 +1336,15 @@
       render();
       return;
     }
+    if (form.id === "recipeImageForm") {
+      var url = String(form.querySelector('[name="url"]').value || "").trim();
+      var ri2 = Store.setRecipeImage(form.getAttribute("data-id"), url);
+      if (!ri2.ok) { toast(ri2.msg); return; }
+      closeModal();
+      toast("图片已保存");
+      if (currentRoute().name === "admin") refreshAdmin(); else render();
+      return;
+    }
     if (form.id === "settingsForm") {
       var fd5 = new FormData(form);
       Store.updateSettings({
@@ -1323,6 +1393,17 @@
       adminCommentOnlyHidden = t.checked;
       var box = document.getElementById("adminCommentList");
       if (box) box.innerHTML = adminCommentListHTML();
+    } else if (t.id === "imgFile" && t.files && t.files[0]) {
+      var file = t.files[0];
+      if (file.size > 6 * 1024 * 1024) { toast("图片太大，请选 6MB 以内的图片"); t.value = ""; return; }
+      downscaleImage(file, 1000, function (dataUrl) {
+        if (!dataUrl) { toast("图片读取失败，换个格式试试"); return; }
+        var urlInput = document.getElementById("imgUrl");
+        var preview = document.getElementById("imgPreview");
+        if (urlInput) urlInput.value = dataUrl;
+        if (preview) preview.innerHTML = '<img src="' + dataUrl + '" alt="">';
+        toast("图片已压缩，点保存生效");
+      });
     } else if (t.id === "importFile" && t.files && t.files[0]) {
       var reader = new FileReader();
       reader.onload = function () {

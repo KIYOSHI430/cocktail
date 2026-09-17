@@ -151,9 +151,52 @@ main { max-width: 1180px; margin: 0 auto; padding: 22px 20px 60px; }
 .card:hover { transform: translateY(-3px); border-color: #55483e; }
 .card-art {
   position: relative; height: 116px; display: grid; place-items: center; cursor: pointer;
+  overflow: hidden;
 }
 .card-art .emoji { font-size: 48px; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .4)); }
 .card-art .pill { position: absolute; left: 10px; bottom: 10px; }
+.card-art .pill, .card-art .fav { z-index: 2; }
+/* 有照片时，底部加一层暗角，保证「经典 / 特调」标签看得清 */
+.card-art::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 58px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, .5)); z-index: 1; pointer-events: none;
+}
+.card-art .pill {
+  background: rgba(0, 0, 0, .62); border-color: rgba(255, 255, 255, .22);
+  color: #f5ece0; backdrop-filter: blur(6px);
+}
+.card-art .pill.cls { color: #f0c987; }
+.card-art .pill.ctm { color: #9fe0c4; }
+
+/* 配方成品图：加载失败自动隐藏，露出底下的 emoji 卡片，不会出现破图 */
+.art-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; background: var(--panel-2);
+}
+.art-img.failed { display: none; }
+.card-art:has(.art-img:not(.failed)) .emoji { display: none; }
+
+.detail-hero { position: relative; overflow: hidden; }
+.detail-hero .hero-img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+}
+.detail-hero .hero-img.failed { display: none; }
+.detail-hero:has(.hero-img:not(.failed)) > span { display: none; }
+.detail-hero .hero-change { position: absolute; right: 8px; bottom: 8px; z-index: 3; }
+
+.table-thumb {
+  width: 38px; height: 38px; border-radius: 8px; object-fit: cover;
+  vertical-align: middle; margin-right: 6px; background: var(--panel-2);
+}
+.table-thumb.none { display: inline-grid; place-items: center; font-size: 18px; }
+.table-thumb.failed { display: none; }
+
+.img-preview {
+  height: 180px; border-radius: 12px; overflow: hidden; margin-bottom: 12px;
+  border: 1px solid var(--line); background: var(--panel-2);
+  display: grid; place-items: center;
+}
+.img-preview img { width: 100%; height: 100%; object-fit: cover; }
 .fav {
   position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%;
   border: none; cursor: pointer; font-size: 16px; color: #fff; background: rgba(0, 0, 0, .35);

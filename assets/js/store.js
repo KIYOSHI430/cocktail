@@ -51,7 +51,19 @@
     r.videoName = r.videoName || "";
     r.ingredients = r.ingredients || [];
     r.steps = r.steps || [];
+    // 只在"从未设置过图片"时补演示图（管理员换过图或手动清空过的都不会被覆盖）
+    if (typeof r.image === "undefined") {
+      var seedImg = (window.SEED.images || {})[r.id];
+      r.image = seedImg || "";
+    }
+    r.imageThumb = r.image ? (r.imageThumb || thumbFor(r.image)) : "";
     return r;
+  }
+
+  /** 演示图库支持在后面加 /preview 取小图，其它图源直接用原图 */
+  function thumbFor(url) {
+    if (!url) return "";
+    return /thecocktaildb\.com\/images\/media\/drink\//.test(url) ? url + "/preview" : url;
   }
 
   function buildDefaultState() {
@@ -305,6 +317,8 @@
       steps: data.steps || [],
       video: data.video || "",
       videoName: data.videoName || "",
+      image: "",           // 用户新发的配方默认没有图片，界面会显示 emoji 卡片，管理员可后续换图
+      imageThumb: "",
       author: me.username,
       authorId: me.id,
       createdAt: nowISO(),
@@ -357,6 +371,23 @@
     if (!/^https?:\/\//i.test(String(url || ""))) return { ok: false, msg: "请填写以 http/https 开头的完整链接" };
     r.video = String(url).trim();
     r.videoName = String(name || "").trim() || "观看教学视频";
+    persist();
+    return { ok: true, recipe: r };
+  }
+
+  /** 管理员给配方换图（支持图片链接，也支持上传后转成的 data:image） */
+  function setRecipeImage(id, url) {
+    var me = currentUser();
+    if (!me) return { ok: false, msg: "请先登录" };
+    if (me.role !== "admin") return { ok: false, msg: "只有管理员可以修改配方图片" };
+    var r = getRecipe(id);
+    if (!r) return { ok: false, msg: "配方不存在" };
+    url = String(url || "").trim();
+    if (url && !/^(https?:\/\/|data:image\/)/i.test(url)) {
+      return { ok: false, msg: "请填写以 http/https 开头的图片链接" };
+    }
+    r.image = url;
+    r.imageThumb = url ? thumbFor(url) : "";
     persist();
     return { ok: true, recipe: r };
   }
@@ -864,6 +895,7 @@
     deleteRecipe: deleteRecipe,
     addView: addView,
     setRecipeVideo: setRecipeVideo,
+    setRecipeImage: setRecipeImage,
 
     // 收藏 / 我的材料
     isFavorite: isFavorite,
