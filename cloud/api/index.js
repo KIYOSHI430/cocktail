@@ -123,6 +123,28 @@ function newId(prefix) {
   return prefix + "-" + Date.now().toString(36) + crypto.randomBytes(3).toString("hex");
 }
 
+/**
+ * 判断请求是不是来自「腾讯云自己的域名」（静态托管的 xxx.tcloudbaseapp.com 等）。
+ *
+ * 为什么要在意这个：HTTP 网关碰到本环境自己的域名时，会**自动补一个**
+ *     Access-Control-Allow-Origin: <你的域名>
+ * 如果这时云函数再写一个 "*"，浏览器收到的是 "<你的域名>,*" —— 这是个非法值
+ * （浏览器只认 "*" 或一个精确的来源），于是整个跨域请求被判失败，
+ * 前端表现就是"云端连接失败，暂时使用本地数据"。
+ *
+ * 所以：来自腾讯云自己域名的请求，这里**不写** CORS 头，交给网关；
+ * 其它来源（GitHub Pages、本地调试等）仍由我们返回 "*"。
+ */
+function isCloudOwnOrigin(origin) {
+  if (!origin) return false;
+  let host = "";
+  try { host = new URL(origin).hostname.toLowerCase(); }
+  catch (e) { return false; }
+  return host.endsWith(".tcloudbaseapp.com") ||
+         host.endsWith(".tcloudbase.com") ||
+         host.endsWith(".tcb.qcloud.la");
+}
+
 /* ---------------- 密码与会话 ---------------- */
 
 function hashPassword(password, salt) {
@@ -1096,12 +1118,15 @@ function readBody(req) {
 }
 
 const server = http.createServer(async function (req, res) {
+  const reqOrigin = String(req.headers.origin || "");
   const cors = {
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type, x-token",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Vary": "Origin",
     "Content-Type": "application/json; charset=utf-8"
   };
+  // 腾讯云自己的域名由网关补跨域头，这里不能重复写（否则会变成非法的 "域名,*"）
+  if (!isCloudOwnOrigin(reqOrigin)) cors["Access-Control-Allow-Origin"] = "*";
   if (req.method === "OPTIONS") { res.writeHead(204, cors); res.end(); return; }
 
   let payload = {};
