@@ -19,15 +19,44 @@ const cloudbaseSDK = require("@cloudbase/node-sdk");
 const crypto = require("crypto");
 
 /* 云函数里会自动注入环境凭据，通常不用另外配；
-   如果你想在本地跑，就在环境变量里提供 CLOUDBASE_ENV_ID / CLOUDBASE_SECRETID / CLOUDBASE_SECRETKEY */
-const initOptions = { env: process.env.CLOUDBASE_ENV_ID || cloudbaseSDK.SYMBOL_CURRENT_ENV };
-if (process.env.CLOUDBASE_SECRETID && process.env.CLOUDBASE_SECRETKEY) {
-  initOptions.secretId = process.env.CLOUDBASE_SECRETID;
-  initOptions.secretKey = process.env.CLOUDBASE_SECRETKEY;
+   如果你在本地跑，就在环境变量里提供 CLOUDBASE_ENV_ID / CLOUDBASE_SECRETID / CLOUDBASE_SECRETKEY */
+const ENV_ID = process.env.CLOUDBASE_ENV_ID ||
+               process.env.TCB_ENV ||
+               process.env.SCF_NAMESPACE ||
+               cloudbaseSDK.SYMBOL_CURRENT_ENV;
+
+/* 初始化失败不要让整个函数崩掉：记下原因，之后每个请求都返回可读的错误信息，
+   这样在控制台里一眼就能看出问题（而不是看到一堆红色堆栈）。 */
+let app = null;
+let initError = "";
+try {
+  const initOptions = { env: ENV_ID };
+  if (process.env.CLOUDBASE_SECRETID && process.env.CLOUDBASE_SECRETKEY) {
+    initOptions.secretId = process.env.CLOUDBASE_SECRETID;
+    initOptions.secretKey = process.env.CLOUDBASE_SECRETKEY;
+  }
+  app = cloudbaseSDK.init(initOptions);
+} catch (e) {
+  initError = e.message || String(e);
+  console.error("[api] 云开发 SDK 初始化失败：", initError);
 }
-const app = cloudbaseSDK.init(initOptions);
+
+function rdb() {
+  if (!app) throw new Error("云开发 SDK 未就绪（" + (initError || "缺少环境信息") + "）");
+  return app.rdb();
+}
 
 const SESSION_DAYS = 30;
+
+/* 兜底：SDK 在初始化或请求异常时可能抛出未捕获的 Promise 异常。
+   云函数里"崩掉"意味着整个服务不可用，所以这里统一捕获、只记日志，
+   让请求仍能返回一个可读的错误信息（而不是控制台里一堆红色堆栈）。 */
+process.on("unhandledRejection", function (e) {
+  console.error("[api] 未处理的 Promise 异常：", (e && e.message) || e);
+});
+process.on("uncaughtException", function (e) {
+  console.error("[api] 未捕获异常：", (e && e.message) || e);
+});
 
 /* ---------------- 数据库小工具（把 rdb() 的链式调用包一下） ---------------- */
 
@@ -49,7 +78,7 @@ function applyFilters(query, filters) {
 /** 查询多行 */
 async function dbSelect(table, filters, options) {
   options = options || {};
-  let query = app.rdb().from(table).select("*");
+  let query = rdb().from(table).select("*");
   query = applyFilters(query, filters);
   if (options.order) query = query.order(options.order, { ascending: options.asc !== false });
   if (options.limit) query = query.limit(options.limit);
@@ -66,20 +95,20 @@ async function dbSelectOne(table, filters) {
 
 /** 插入一行 */
 async function dbInsert(table, row) {
-  const { error } = await app.rdb().from(table).insert([row]);
+  const { error } = await rdb().from(table).insert([row]);
   if (error) throw toError(error);
   return row;
 }
 
 /** 更新（按 id） */
 async function dbUpdate(table, id, patch) {
-  const { error } = await app.rdb().from(table).update(patch).eq("id", id);
+  const { error } = await rdb().from(table).update(patch).eq("id", id);
   if (error) throw toError(error);
 }
 
 /** 删除（按 id） */
 async function dbDelete(table, id) {
-  const { error } = await app.rdb().from(table).delete().eq("id", id);
+  const { error } = await rdb().from(table).delete().eq("id", id);
   if (error) throw toError(error);
 }
 
@@ -514,7 +543,10 @@ async function adminUsers(payload, token, me) {
   });
 }
 
-/* ---------------- 入口 ---------------- */
+/* ---------------- 入口 ----------------
+   新版云开发控制台创建的是「HTTP 函数」：需要一个监听端口的 HTTP 服务
+   （模板 HTTP Node.js Hello World 的 scf_bootstrap 就是执行 node index.js，端口 9000）。
+   这里同时保留 exports.main，这样无论被当成 HTTP 函数还是事件函数调用都能工作。 */
 
 const HANDLERS = {
   bootstrap: (p, t) => bootstrap(t),
@@ -541,7 +573,79 @@ const HANDLERS = {
   adminUsers: adminUsers
 };
 
-function parseEvent(event) {
+/** 统一的处理入口：返回 { ok, data } 或 { ok:false, msg } */
+async function handle(action, payload, token) {
+  if (!action) return fail("缺少 action");
+
+  if (action === "ping") {
+    try {
+      const rows = await dbSelect("ingredients", [], { limit: 1 });
+      return ok({ db: "ok", ingredients: rows.length, env: process.env.TCB_ENV || "", time: Date.now() });
+    } catch (e) {
+      return fail("数据库连不上：" + e.message);
+    }
+  }
+
+  const handler = HANDLERS[action];
+  if (!handler) return fail("未知的 action：" + action);
+  try {
+    const me = await userByToken(token);
+    return await handler(payload, token, me);
+  } catch (e) {
+    console.error("[api] " + action + " 出错：", e);
+    return fail("服务端出错：" + e.message);
+  }
+}
+
+/* ---------- 方式一：HTTP 函数（新版控制台默认，模板就是这种） ---------- */
+
+const http = require("http");
+
+function readBody(req) {
+  return new Promise(function (resolve) {
+    let raw = "";
+    req.on("data", function (chunk) { raw += chunk; if (raw.length > 5e6) req.destroy(); });
+    req.on("end", function () { resolve(raw); });
+    req.on("error", function () { resolve(""); });
+  });
+}
+
+const server = http.createServer(async function (req, res) {
+  const cors = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type, x-token",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Content-Type": "application/json; charset=utf-8"
+  };
+  if (req.method === "OPTIONS") { res.writeHead(204, cors); res.end(); return; }
+
+  let payload = {};
+  const raw = await readBody(req);
+  if (raw) { try { payload = JSON.parse(raw); } catch (e) { payload = {}; } }
+
+  const url = new URL(req.url || "/", "http://localhost");
+  const action = payload.action || url.searchParams.get("action") || "";
+  const token = payload.token || url.searchParams.get("token") || req.headers["x-token"] || "";
+  const data = payload.payload || payload;
+
+  let result;
+  try {
+    result = await handle(action, data, token);
+  } catch (e) {
+    result = fail("服务端异常：" + e.message);
+  }
+  res.writeHead(200, cors);
+  res.end(JSON.stringify(result));
+});
+
+const PORT = process.env.PORT || 9000;
+server.listen(PORT, function () {
+  console.log("[api] 已启动，监听端口 " + PORT);
+});
+
+/* ---------- 方式二：事件函数（如果哪天用事件方式调用，也能工作） ---------- */
+
+exports.main = async function (event) {
   let body = event || {};
   if (typeof body === "string") { try { body = JSON.parse(body); } catch (e) { body = {}; } }
   if (body.body) {
@@ -549,47 +653,11 @@ function parseEvent(event) {
   }
   const query = body.queryStringParameters || {};
   const headers = body.headers || {};
-  return {
-    action: body.action || query.action || "",
-    payload: body.payload || body,
-    token: body.token || query.token || headers["x-token"] || ""
-  };
-}
-
-/** HTTP 网关要返回 CORS 头，否则 GitHub Pages 上的网页调不动 */
-function httpResponse(result) {
-  return {
-    statusCode: 200,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "Content-Type, x-token",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
-    },
-    body: JSON.stringify(result)
-  };
-}
-
-exports.main = async (event) => {
-  const { action, payload, token } = parseEvent(event);
-  if (!action) return httpResponse(fail("缺少 action"));
-
-  if (action === "ping") {
-    try {
-      const rows = await dbSelect("ingredients", [], { limit: 1 });
-      return httpResponse(ok({ db: "ok", ingredients: rows.length, time: Date.now() }));
-    } catch (e) {
-      return httpResponse(fail("数据库连不上：" + e.message));
-    }
-  }
-
-  const handler = HANDLERS[action];
-  if (!handler) return httpResponse(fail("未知的 action：" + action));
+  const action = body.action || query.action || "";
+  const token = body.token || query.token || headers["x-token"] || "";
   try {
-    const me = await userByToken(token);
-    return httpResponse(await handler(payload, token, me));
+    return await handle(action, body.payload || body, token);
   } catch (e) {
-    console.error("[api] " + action + " 出错：", e);
-    return httpResponse(fail("服务端出错：" + e.message));
+    return fail("服务端异常：" + e.message);
   }
 };
