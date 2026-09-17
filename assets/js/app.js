@@ -1472,7 +1472,11 @@
       '<section class="panel"><h3>我的身份与权限 <span class="mute-text">（' + Store.roleLabel() + "）</span></h3>" +
         (me.intro ? '<p class="mute-text">' + esc(me.intro) + "</p>" : "") +
         '<ul class="perm-list">' + Store.permissionList().map(function (p) { return "<li>" + esc(p) + "</li>"; }).join("") + "</ul>" +
-        (me.role === "admin" ? '<a class="btn ghost sm" href="#/admin">进入管理后台</a>' : '<span class="mute-text">需要更多权限？请联系站点管理员。</span>') +
+        '<div class="detail-actions">' +
+          '<button class="btn ghost sm" data-action="change-pwd">修改密码</button>' +
+          (me.role === "admin" ? '<a class="btn ghost sm" href="#/admin">进入管理后台</a>' : "") +
+        "</div>" +
+        (me.role === "admin" ? "" : '<span class="mute-text">需要更多权限？请联系站点管理员。</span>') +
       "</section>" +
 
       '<section class="panel"><h3>我选中的材料 <span class="mute-text">（' + mineIngs.length + " 种）</span></h3>" +
@@ -1856,7 +1860,7 @@
         '<div class="form-foot"><button class="btn" type="submit">' + (isLogin ? "登录" : "注册并登录") + "</button>" +
         '<button type="button" class="btn ghost" data-action="close-modal">取消</button></div>' +
       "</form>" +
-      (isLogin ? '<p class="mute-text">演示账号：管理员 <b>admin</b> / <b>Cocktail@2026</b>　　普通用户 <b>demo</b> / <b>123456</b></p>' : "") +
+      (isLogin ? '<p class="mute-text">管理员请用自己的手机号登录。演示用普通账号：<b>demo</b> / <b>123456</b></p>' : "") +
       '<p class="mute-text">改成 <a href="#" data-action="switch-auth" data-value="' + (isLogin ? "register" : "login") + '">' +
       (isLogin ? "没有账号？去注册" : "已有账号？去登录") + "</a></p>"
     );
@@ -1967,6 +1971,21 @@
     switch (action) {
       case "open-login": authModal("login"); break;
       case "open-register": authModal("register"); break;
+      case "change-pwd": {
+        if (!Store.currentUser()) { authModal("login"); break; }
+        openModal(
+          "<h2>修改密码</h2>" +
+          '<form id="changePwdForm" class="form">' +
+            '<label class="field"><span>当前密码</span><input class="input" name="oldPwd" type="password" placeholder="请输入现在的密码" required></label>' +
+            '<label class="field"><span>新密码</span><input class="input" name="newPwd" type="password" placeholder="至少 6 位" required></label>' +
+            '<label class="field"><span>确认新密码</span><input class="input" name="confirmPwd" type="password" placeholder="再输入一次" required></label>' +
+            '<p class="mute-text">密码只以"随机盐 + 哈希"的形式保存在本机，不会明文存储。</p>' +
+            '<div class="form-foot"><button class="btn" type="submit">保存新密码</button>' +
+            '<button type="button" class="btn ghost" data-action="close-modal">取消</button></div>' +
+          "</form>"
+        );
+        break;
+      }
       case "toggle-menu": toggleMenu(); break;
       case "close-menu": toggleMenu(false); break;
       case "deck-prev": deckGo(-1); break;
@@ -2479,6 +2498,20 @@
       return;
     }
     if (form.id === "postForm") return submitPost(form);
+    if (form.id === "changePwdForm") {
+      var me3 = Store.currentUser();
+      if (!me3) { toast("请先登录"); return; }
+      var fdPwd = new FormData(form);
+      var oldPwd = String(fdPwd.get("oldPwd") || "");
+      var newPwd = String(fdPwd.get("newPwd") || "");
+      if (!Store.checkPassword(me3, oldPwd)) { toast("当前密码不正确"); return; }
+      if (newPwd.length < 6) { toast("新密码至少 6 位"); return; }
+      if (newPwd !== String(fdPwd.get("confirmPwd") || "")) { toast("两次输入的新密码不一致"); return; }
+      Store.setPassword(me3.id, newPwd);
+      closeModal();
+      toast("密码已更新，请记好新密码");
+      return;
+    }
     if (form.id === "postCommentForm") {
       var fdPc = new FormData(form);
       var pcRes = Store.addPostComment(form.getAttribute("data-id"), fdPc.get("content"));

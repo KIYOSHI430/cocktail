@@ -6,6 +6,13 @@
 
   var KEY = "cocktail_app_v1";
   var DATA_VERSION = 6;   // v6：帖子加酒款标签与收藏
+
+  /** 早期版本的示例帖，上线前清理掉（只删示例账号发的同名帖） */
+  var REMOVED_SEED_POSTS = [
+    "分享一个在家做透明大冰块的方法",
+    "喝了二十来款经典之后，按难度排个序",
+    "尼格罗尼试了三种比例，说说感受"
+  ];
   var state = null;
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -14,6 +21,108 @@
 
   function newId(prefix) {
     return prefix + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  /* ================= 密码哈希 =================
+     原型阶段没有后端，但也绝不能明文存密码：
+       存的是 salt + 反复迭代的 SHA-256 结果，登录时重新算一遍比对。
+     同一个密码每次注册都会得到不同的哈希（因为有随机 salt）。
+     注意：这是本地哈希，强度不如服务端的 bcrypt/scrypt；
+          正式上线接后端后，密码应改由服务端用 bcrypt/scrypt 处理。 */
+
+  var HASH_ROUNDS = 12000;
+
+  function sha256(msg) {
+    function rrot(x, n) { return (x >>> n) | (x << (32 - n)); }
+    var K = [
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+      0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+      0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+      0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+      0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+      0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+    ];
+    var H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+    var bytes = [], i, c;
+    for (i = 0; i < msg.length; i++) {
+      c = msg.charCodeAt(i);
+      if (c < 128) bytes.push(c);
+      else if (c < 2048) bytes.push(192 | (c >> 6), 128 | (c & 63));
+      else bytes.push(224 | (c >> 12), 128 | ((c >> 6) & 63), 128 | (c & 63));
+    }
+    var bitLen = bytes.length * 8;
+    bytes.push(0x80);
+    while (bytes.length % 64 !== 56) bytes.push(0);
+    bytes.push(0, 0, 0, 0,
+      (bitLen >>> 24) & 255, (bitLen >>> 16) & 255, (bitLen >>> 8) & 255, bitLen & 255);
+
+    var w = new Array(64);
+    for (var off = 0; off < bytes.length; off += 64) {
+      for (i = 0; i < 16; i++) {
+        w[i] = (bytes[off + i * 4] << 24) | (bytes[off + i * 4 + 1] << 16) |
+               (bytes[off + i * 4 + 2] << 8) | bytes[off + i * 4 + 3];
+      }
+      for (i = 16; i < 64; i++) {
+        var s0 = rrot(w[i - 15], 7) ^ rrot(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+        var s1 = rrot(w[i - 2], 17) ^ rrot(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+      }
+      var a = H[0], b = H[1], cc = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+      for (i = 0; i < 64; i++) {
+        var S1 = rrot(e, 6) ^ rrot(e, 11) ^ rrot(e, 25);
+        var ch = (e & f) ^ (~e & g);
+        var t1 = (h + S1 + ch + K[i] + w[i]) | 0;
+        var S0 = rrot(a, 2) ^ rrot(a, 13) ^ rrot(a, 22);
+        var maj = (a & b) ^ (a & cc) ^ (b & cc);
+        var t2 = (S0 + maj) | 0;
+        h = g; g = f; f = e; e = (d + t1) | 0;
+        d = cc; cc = b; b = a; a = (t1 + t2) | 0;
+      }
+      H[0] = (H[0] + a) | 0; H[1] = (H[1] + b) | 0; H[2] = (H[2] + cc) | 0; H[3] = (H[3] + d) | 0;
+      H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;
+    }
+    return H.map(function (x) { return ("00000000" + (x >>> 0).toString(16)).slice(-8); }).join("");
+  }
+
+  function makeSalt() {
+    return sha256(String(Date.now()) + Math.random() + Math.random()).slice(0, 24);
+  }
+
+  /** 加盐 + 迭代哈希，返回十六进制字符串 */
+  function hashPassword(password, salt) {
+    var h = salt + "|" + String(password || "");
+    for (var i = 0; i < HASH_ROUNDS; i++) h = sha256(h + "|" + salt + "|" + i);
+    return h;
+  }
+
+  /** 把账号里的明文密码换成哈希（老数据升级时调用） */
+  function hashifyPassword(u) {
+    if (u.password && !u.hash) {
+      u.salt = u.salt || makeSalt();
+      u.hash = hashPassword(u.password, u.salt);
+      delete u.password;
+    }
+    if (!u.salt) u.salt = makeSalt();
+    return u;
+  }
+
+  function checkPassword(u, password) {
+    if (u && u.hash && u.salt) return hashPassword(password, u.salt) === u.hash;
+    return false;
+  }
+
+  /** 立刻修改某个账号的密码（同样只存哈希） */
+  function setPassword(userId, newPassword) {
+    var u = state.users.filter(function (x) { return x.id === userId; })[0];
+    if (!u) return { ok: false, msg: "账号不存在" };
+    if (String(newPassword || "").length < 6) return { ok: false, msg: "密码至少 6 位" };
+    u.salt = makeSalt();
+    u.hash = hashPassword(newPassword, u.salt);
+    delete u.password;
+    persist();
+    return { ok: true };
   }
 
   /* ---------------- 初始化 ---------------- */
@@ -40,7 +149,10 @@
       return u || { id: "u-" + key, username: key, nickname: key };
     }
     return clone(window.SEED.posts || []).map(function (p) {
-      var a = authorOf(p.authorKey || "admin");
+      var a = p.authorId
+        ? (window.SEED.users.filter(function (x) { return x.id === p.authorId; })[0] ||
+           { id: p.authorId, username: p.authorKey || p.authorId, nickname: p.authorKey || p.authorId })
+        : authorOf(p.authorKey || "admin");
       return {
         id: p.id || newId("post"),
         title: p.title,
@@ -54,7 +166,10 @@
         review: { source: "rule", risk: 0, reasons: [], at: new Date().toISOString() },
         rejectReason: "", likes: p.likes || [], views: 0,
         comments: (p.comments || []).map(function (c) {
-          var ca = authorOf(c.authorKey || "demo");
+          var ca = c.authorId
+            ? (window.SEED.users.filter(function (x) { return x.id === c.authorId; })[0] ||
+               { id: c.authorId, username: c.authorKey || c.authorId, nickname: c.authorKey || c.authorId })
+            : authorOf(c.authorKey || "demo");
           return {
             id: newId("pc"), userId: ca.id, username: ca.username, nickname: ca.nickname || ca.username,
             content: c.content, createdAt: new Date(now - (c.hoursAgo || 0) * 3600 * 1000).toISOString(), likes: []
@@ -72,6 +187,7 @@
     u.phone = u.phone || "";
     u.intro = u.intro || "";
     u.createdAt = u.createdAt || nowISO();
+    hashifyPassword(u);      // 老数据里的明文密码会在这里被换成哈希
     return u;
   }
 
@@ -180,14 +296,52 @@
     s.recipes.forEach(normalizeRecipe);
     s.users.forEach(normalizeUser);
 
+    // 管理员账号升级：老版本是"用户名 admin + 明文密码"，这里换成手机号 + 哈希密码。
+    // 只在还没设置手机号时替换，之后你在后台改了手机号或密码都不会被覆盖。
+    var seedAdmin = (window.SEED.users || []).filter(function (u) { return u.role === "admin"; })[0];
+    if (seedAdmin) {
+      var adm = s.users.filter(function (u) { return u.id === "u-admin"; })[0] ||
+                s.users.filter(function (u) { return u.role === "admin"; })[0];
+      if (adm && !adm.phone) {
+        adm.id = "u-admin";
+        adm.phone = seedAdmin.phone;
+        adm.username = seedAdmin.username;
+        adm.nickname = adm.nickname || seedAdmin.nickname;
+        adm.role = "admin";
+        adm.salt = seedAdmin.salt;
+        adm.hash = seedAdmin.hash;
+        delete adm.password;
+      }
+    }
+
     // 新的示例帖（按标题去重）
-    if (!Array.isArray(s.posts)) s.posts = seedPosts();
+    var seedPs = seedPosts();
+    if (!Array.isArray(s.posts)) s.posts = seedPs;
     else {
+      // 清理掉不再保留的示例帖（只删示例账号发的、标题对得上的，不会误删用户自己的帖子）
+      s.posts = s.posts.filter(function (p) {
+        var isSeedAuthor = p.authorId === "u-admin" || p.authorId === "u-demo";
+        return !(isSeedAuthor && REMOVED_SEED_POSTS.indexOf(p.title) >= 0);
+      });
       var titles = {};
       s.posts.forEach(function (p) { titles[p.title] = true; });
-      seedPosts().forEach(function (p) { if (!titles[p.title]) s.posts.push(p); });
+      seedPs.forEach(function (p) { if (!titles[p.title]) s.posts.push(p); });
     }
     s.posts.forEach(function (p) { if (!Array.isArray(p.recipeTags)) p.recipeTags = []; });
+
+    // 评论：同样只清理示例评论，用户自己发的评论一条不动
+    var seedCs = seedComments();
+    if (!Array.isArray(s.comments)) s.comments = seedCs;
+    else {
+      var keep = {};
+      seedCs.forEach(function (c) { keep[c.id] = true; });
+      s.comments = s.comments.filter(function (c) {
+        return String(c.id).indexOf("c-seed-") !== 0 || keep[c.id];
+      });
+      var have = {};
+      s.comments.forEach(function (c) { have[c.id] = true; });
+      seedCs.forEach(function (c) { if (!have[c.id]) s.comments.push(c); });
+    }
 
     return { ingredients: addedIng, recipes: addedRec };
   }
@@ -198,10 +352,6 @@
    */
   function migrate(s) {
     var added = mergeSeedData(s);
-
-    // 早期版本的管理员密码较弱，升级时换成新的强密码（如果你自己改过就不会动）
-    var admin = s.users.filter(function (u) { return u.username === "admin"; })[0];
-    if (admin && admin.password === "admin123") admin.password = "Cocktail@2026";
 
     s.settings = Object.assign(clone(window.SEED.settings), s.settings || {});
     if (!Array.isArray(s.comments)) s.comments = seedComments();
@@ -349,10 +499,11 @@
       phone: phone,
       username: phone,          // 兼容旧逻辑（唯一标识）
       nickname: nickname,
-      password: password,
       role: "user", intro: "",
       createdAt: nowISO(), favorites: [], postFavorites: [], myIngredients: []
     };
+    user.salt = makeSalt();
+    user.hash = hashPassword(password, user.salt);
     state.users.push(user);
     state.sessionUserId = user.id;
     delete state.smsCodes[phone];
@@ -365,7 +516,7 @@
     var key = String(account || "").trim();
     var lower = key.toLowerCase();
     var user = state.users.filter(function (u) {
-      if (u.password !== String(password)) return false;
+      if (!checkPassword(u, password)) return false;
       if (isPhone(key)) return u.phone === key;
       return String(u.username || "").toLowerCase() === lower;
     })[0];
@@ -385,7 +536,15 @@
   function updateUser(id, patch) {
     var u = state.users.filter(function (x) { return x.id === id; })[0];
     if (!u) return;
-    Object.assign(u, patch);
+    var next = Object.assign({}, patch);
+    if (next.password) {
+      // 改密码：生成新 salt 并只存哈希
+      u.salt = makeSalt();
+      u.hash = hashPassword(next.password, u.salt);
+      delete next.password;
+    }
+    Object.assign(u, next);
+    if (u.phone) u.username = u.phone;
     persist();
   }
 
@@ -1639,6 +1798,10 @@
     isPhone: isPhone,
     maskPhone: maskPhone,
     phoneTaken: phoneTaken,
+    hashPassword: hashPassword,
+    makeSalt: makeSalt,
+    checkPassword: checkPassword,
+    setPassword: setPassword,
     logout: logout,
     users: function () { return state.users.slice(); },
     updateUser: updateUser,

@@ -1923,14 +1923,18 @@ window.SEED = {
   /* ---------- 默认账号与站点设置 ---------- */
   users: [
     {
-      id: "u-admin", username: "admin", password: "Cocktail@2026", role: "admin",
+      id: "u-admin", username: "17345930612", phone: "17345930612", role: "admin",
       nickname: "站长", createdAt: "2026-01-01",
+      /* 密码不以明文保存：下面是一串"随机 salt + 反复迭代 SHA-256"的结果。
+         想改密码请登录后在「管理后台 → 用户管理 → 编辑资料」里重置，不要在代码里写明文。 */
+      salt: "7f3a9c1e5b2d8460a1c3e5f7092b4d68",
+      hash: "29bb7797b824277c9b3713a3653e11712305be6391e8bb5a5714ddcd682e7b07",
       intro: "站点管理员：负责材料库、配方审核、评论管理与用户权限。"
     },
     {
       id: "u-demo", username: "demo", password: "123456", role: "user",
       nickname: "爱喝莫吉托的人", createdAt: "2026-01-01",
-      intro: "普通用户：可以发布配方、推荐视频、评论和收藏。"
+      intro: "演示用普通账号：可以发布配方、推荐视频、评论和收藏。"
     }
   ],
 
@@ -1957,14 +1961,8 @@ window.SEED = {
   comments: [
     { id: "c-seed-1", recipeId: "gin-tonic", userId: "u-demo", username: "demo", nickname: "爱喝莫吉托的人",
       content: "按这个比例做了，汤力水一定要冰镇，差别很大！", hoursAgo: 30, likes: ["u-admin"], pinned: true },
-    { id: "c-seed-2", recipeId: "gin-tonic", userId: "u-admin", username: "admin", nickname: "站长",
-      content: "补一个小技巧：青柠角先在杯口擦一圈再放进去，香气会更明显。", hoursAgo: 20, likes: ["u-demo"] },
-    { id: "c-seed-3", recipeId: "mojito", userId: "u-demo", username: "demo", nickname: "爱喝莫吉托的人",
-      content: "薄荷千万别捣太狠，会发苦，轻压两下就够了。", hoursAgo: 8, likes: ["u-admin"] },
-    { id: "c-seed-4", recipeId: "negroni", userId: "u-demo", username: "demo", nickname: "爱喝莫吉托的人",
-      content: "第一次喝有点苦，第二次就上瘾了，建议冰块放足一点。", hoursAgo: 3, likes: [] },
-    { id: "c-seed-5", recipeId: "espresso-martini", userId: "u-demo", username: "demo", nickname: "爱喝莫吉托的人",
-      content: "咖啡一定要现萃的，摇的时候用力一点才有那层奶泡。", hoursAgo: 1, likes: ["u-admin"] }
+    { id: "c-seed-6", recipeId: "mojito", userId: "u-admin", username: "17345930612", nickname: "站长",
+      content: "薄荷千万别捣太狠，会发苦，轻压两下就够了。", hoursAgo: 8, likes: ["u-demo"] }
   ],
 
   /* ---------- 交流区示例帖（hoursAgo 同样会在首次载入时换算成真实时间） ---------- */
@@ -1972,33 +1970,18 @@ window.SEED = {
     {
       title: "新手想入坑，第一瓶金酒买哪个？",
       content: "预算 200 以内，主要想调金汤力和干马天尼。网上看花眼了，有人说必富达有人说添加利，还有人推荐国产的。\n\n有实际喝过的朋友说说吗？",
-      category: "求助", authorKey: "demo", hoursAgo: 6, likes: ["u-admin"], comments: [
-        { authorKey: "admin", content: "先买一瓶标准的伦敦干金（比如必富达）就够用了，等你喝出偏好再换。", hoursAgo: 5 }
+      category: "求助", authorKey: "demo", authorId: "u-demo", hoursAgo: 6, likes: ["u-admin"], comments: [
+        { authorKey: "admin", authorId: "u-admin", content: "先买一瓶标准的伦敦干金（比如必富达）就够用了，等你喝出偏好再换。", hoursAgo: 5 }
       ]
-    },
-    {
-      title: "分享一个在家做透明大冰块的方法",
-      content: "之前用冰箱自带的冰格，冰块又小又不透明，化得特别快。\n\n后来换了个办法：用保温箱冻一大块，冻 24 小时以上，中间的水连续搅两次，出来的冰块又透又耐化，切开来一块能顶一晚上。",
-      category: "分享", authorKey: "admin", hoursAgo: 20, likes: []
-    },
-    {
-      title: "喝了二十来款经典之后，按难度排个序",
-      content: "按新手友好程度排的，个人感受：\n1. 金汤力 / 自由古巴 —— 基本不会失败\n2. 威士忌高球 / 莫斯科骡子 —— 注意比例就行\n3. 莫吉托 / 龙舌兰日出 —— 多两步但很快\n4. 酸类（威士忌酸、代基里、玛格丽特）—— 摇匀是关键\n5. 搅拌类（马天尼、尼格罗尼）—— 冰和水比最难把握\n\n大家觉得呢？",
-      category: "心得", authorKey: "demo", hoursAgo: 30, likes: ["u-admin", "u-demo"]
     },
     {
       title: "莫吉托的薄荷老是捣苦，求正确手法",
       content: "每次按教程压薄荷，做出来总有一股苦涩味。\n\n是不是我压太狠了？大家一般压几下、用多少薄荷？",
-      category: "求助", authorKey: "demo", hoursAgo: 3, likes: ["u-admin"],
+      category: "求助", authorKey: "demo", authorId: "u-demo", hoursAgo: 3, likes: ["u-admin"],
       recipeTags: ["mojito"],
       comments: [
-        { authorKey: "admin", content: "轻压两下出香就够了，压碎叶子就会发苦。另外薄荷最后再加一把会更清爽。", hoursAgo: 2 }
+        { authorKey: "admin", authorId: "u-admin", content: "轻压两下出香就够了，压碎叶子就会发苦。另外薄荷最后再加一把会更清爽。", hoursAgo: 2 }
       ]
-    },
-    {
-      title: "尼格罗尼试了三种比例，说说感受",
-      content: "1:1:1 是标准版，苦味比较冲；\n1:1:0.5（少放味美思）更硬朗适合老手；\n1:0.75:1 甜一点，新手会更容易接受。\n\n大家平时用哪种？",
-      category: "心得", authorKey: "admin", hoursAgo: 12, likes: ["u-demo"], recipeTags: ["negroni"]
     }
   ]
 };
