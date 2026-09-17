@@ -144,10 +144,13 @@
   }
 
   /**
-   * 老数据升级：保留用户自己的账号、配方、收藏，只补上新增的材料、配方、评论与新设置项。
-   * 这样你之前打开的页面不会因为升级而"看不到新内容"。
+   * 把「种子里的新内容」补进用户已有的数据里：
+   *   新增的材料、新增的配方、新增的示例帖。
+   * 这个操作是**幂等**的（按 id / 标题去重），所以每次打开页面都可以安全地跑一遍，
+   * 不用再依赖"记得改版本号"——避免出现"新加了酒谱但老用户看不到"的问题。
+   * 用户自己发布的内容、收藏、设置都不会被动。
    */
-  function migrate(s) {
+  function mergeSeedData(s) {
     if (!Array.isArray(s.ingredients)) s.ingredients = [];
     if (!Array.isArray(s.recipes)) s.recipes = [];
     if (!Array.isArray(s.users)) s.users = [];
@@ -166,8 +169,35 @@
       if (!haveRec[r.id]) { s.recipes.push(clone(r)); addedRec++; }
     });
 
+    // 新增的酒款标签
+    s.recipes.forEach(function (r) {
+      if (!Array.isArray(r.tags) || !r.tags.length) {
+        var t = (window.SEED.tags || {})[r.id];
+        if (t) r.tags = t.slice();
+      }
+    });
+
     s.recipes.forEach(normalizeRecipe);
     s.users.forEach(normalizeUser);
+
+    // 新的示例帖（按标题去重）
+    if (!Array.isArray(s.posts)) s.posts = seedPosts();
+    else {
+      var titles = {};
+      s.posts.forEach(function (p) { titles[p.title] = true; });
+      seedPosts().forEach(function (p) { if (!titles[p.title]) s.posts.push(p); });
+    }
+    s.posts.forEach(function (p) { if (!Array.isArray(p.recipeTags)) p.recipeTags = []; });
+
+    return { ingredients: addedIng, recipes: addedRec };
+  }
+
+  /**
+   * 老数据升级：在补齐新内容的基础上，再做一次性的版本改动
+   * （比如管理员密码升级、站点更名）。
+   */
+  function migrate(s) {
+    var added = mergeSeedData(s);
 
     // 早期版本的管理员密码较弱，升级时换成新的强密码（如果你自己改过就不会动）
     var admin = s.users.filter(function (u) { return u.username === "admin"; })[0];
@@ -176,14 +206,6 @@
     s.settings = Object.assign(clone(window.SEED.settings), s.settings || {});
     if (!Array.isArray(s.comments)) s.comments = seedComments();
     if (!Array.isArray(s.reports)) s.reports = [];
-    if (!Array.isArray(s.posts)) s.posts = seedPosts();
-    else {
-      // 升级时把新增的示例帖补进去（按标题去重，不会重复添加）
-      var titles = {};
-      s.posts.forEach(function (p) { titles[p.title] = true; });
-      seedPosts().forEach(function (p) { if (!titles[p.title]) s.posts.push(p); });
-      s.posts.forEach(function (p) { if (!Array.isArray(p.recipeTags)) p.recipeTags = []; });
-    }
     if (typeof s.dailyOverride === "undefined") s.dailyOverride = null;
     if (!s.smsCodes) s.smsCodes = {};
 
@@ -191,7 +213,7 @@
     if (s.settings.siteName === "今晚喝什么") s.settings.siteName = "鸡尾酒法典";
 
     s.version = DATA_VERSION;
-    console.log("[数据升级] 新增材料 " + addedIng + " 种，新增配方 " + addedRec + " 款");
+    console.log("[数据升级] 新增材料 " + added.ingredients + " 种，新增配方 " + added.recipes + " 款");
     return s;
   }
 
@@ -209,10 +231,15 @@
           state.posts = state.posts || [];
           state.dailyOverride = state.dailyOverride || null;
           state.smsCodes = state.smsCodes || {};
-          state.posts.forEach(function (p) { if (!Array.isArray(p.recipeTags)) p.recipeTags = []; });
           state.users.forEach(normalizeUser);
-          state.recipes.forEach(normalizeRecipe);
-          if (oldVersion < DATA_VERSION) persist();
+          // 每次打开都补齐一次新增的材料/配方/示例帖（幂等，用户内容不受影响）
+          if (oldVersion >= DATA_VERSION) {
+            var added = mergeSeedData(state);
+            if (added.ingredients || added.recipes) {
+              console.log("[内容更新] 补充材料 " + added.ingredients + " 种，配方 " + added.recipes + " 款");
+            }
+          }
+          persist();
           return;
         }
       }

@@ -22,6 +22,7 @@
   var postDraftImages = [];
   var postDraftTags = [];
   var matchQuery = "";
+  var matMode = "cat";   // cat = 按种类分组；abc = 全部按字母排序
   var editingIngredientId = null;
   var authMode = "login";
   var smsTimer = null;
@@ -1128,6 +1129,10 @@
         '<section class="panel">' +
           '<div class="panel-head">' +
             '<input id="matchSearch" class="input search" type="search" placeholder="搜索材料：名称 / 英文名，可空格分隔" value="' + esc(matchQuery) + '">' +
+            '<div class="chips">' +
+              '<button class="chip ' + (matMode === "cat" ? "on" : "") + '" data-action="mat-mode" data-value="cat">按种类</button>' +
+              '<button class="chip ' + (matMode === "abc" ? "on" : "") + '" data-action="mat-mode" data-value="abc">按字母</button>' +
+            "</div>" +
             '<div class="chips"><button class="chip" data-action="match-common">常见基酒一键勾选</button>' +
             '<button class="chip" data-action="match-clear">全部清空</button></div>' +
           "</div>" +
@@ -1137,8 +1142,8 @@
             '<div class="az-index" id="azIndex"></div>' +
           "</div>" +
           '<p class="mute-text picker-foot">材料按大类分组、组内按拼音首字母 A→Z 排列；搜「jinjiu」也能搜到金酒。' +
-          '右边的字母栏可以快速跳到对应首字母。' +
-          '发现材料缺失或写错？<button class="link-btn" data-action="report">提交勘误</button></p>' +
+          "「按种类」是大类分组、「按字母」是全部按 A→Z 并配右侧字母表。" +
+          "发现材料缺失或写错？<button class=\"link-btn\" data-action=\"report\">提交勘误</button></p>" +
         "</section>" +
         '<section class="panel results-panel">' +
           '<div class="panel-head"><h2>能调的酒</h2><span id="matchCount" class="mute-text"></span></div>' +
@@ -1173,36 +1178,46 @@
     if (!wrap) return;
     var selected = selectedSet();
     var list = Store.searchIngredients(matchQuery, "全部").filter(function (i) { return !i.basic; });
-    var html = Store.categories().map(function (cat) {
-      var items = list.filter(function (i) { return i.cat === cat; });
-      if (!items.length) return "";
-      // 大类内按拼音首字母 A→Z 排序，同首字母的再按全拼排
-      items.sort(function (a, b) {
-        if (a.initial !== b.initial) return String(a.initial).localeCompare(String(b.initial));
-        return String(a.py).localeCompare(String(b.py));
-      });
-      var chosen = items.filter(function (i) { return selected[i.id]; }).length;
-      // 再按首字母切成小组，显出 A / B / C 的次序
+    var html;
+
+    function byLetter(a, b) {
+      if (a.initial !== b.initial) return String(a.initial).localeCompare(String(b.initial));
+      return String(a.py).localeCompare(String(b.py));
+    }
+    function chip(i) {
+      return '<button class="ing-chip ' + (selected[i.id] ? "on" : "") + '" data-action="match-toggle" data-id="' + i.id +
+        '" title="' + esc(i.aka || i.name) + '"><span class="e">' + esc(i.emoji || "🍹") + "</span>" +
+        '<span class="nm">' + esc(i.name) + "</span></button>";
+    }
+
+    if (matMode === "abc") {
+      /* 模式二：完全按字母排序，不分种类，配右侧字母检索表 */
+      var all = list.slice().sort(byLetter);
       var groups = [];
-      items.forEach(function (i) {
+      all.forEach(function (i) {
         var last = groups[groups.length - 1];
         if (!last || last.letter !== i.initial) { last = { letter: i.initial, items: [] }; groups.push(last); }
         last.items.push(i);
       });
-      return '<div class="cat-block" data-cat="' + esc(cat) + '">' +
-        '<h3><span>' + esc(cat) + '</span> <span class="mute-text">' + chosen + "/" + items.length + "</span>" +
-        '<button class="mini-btn" data-action="match-cat-all">全选</button>' +
-        '<button class="mini-btn" data-action="match-cat-none">取消</button></h3>' +
-        groups.map(function (g) {
-          return '<div class="letter-group" data-letter="' + esc(g.letter) + '"><span class="letter">' + esc(g.letter) + "</span>" +
-            '<div class="ing-picker">' + g.items.map(function (i) {
-              return '<button class="ing-chip ' + (selected[i.id] ? "on" : "") + '" data-action="match-toggle" data-id="' + i.id +
-                '" title="' + esc(i.aka || i.name) + '"><span class="e">' + esc(i.emoji || "🍹") + "</span>" +
-                '<span class="nm">' + esc(i.name) + "</span></button>";
-            }).join("") + "</div></div>";
-        }).join("") +
-        "</div>";
-    }).join("");
+      html = groups.map(function (g) {
+        return '<div class="letter-group" data-letter="' + esc(g.letter) + '">' +
+          '<span class="letter">' + esc(g.letter) + "</span>" +
+          '<div class="ing-picker">' + g.items.map(chip).join("") + "</div></div>";
+      }).join("");
+    } else {
+      /* 模式一：按种类分组，组内仍按字母顺序，但不显示字母标签 */
+      html = Store.categories().map(function (cat) {
+        var items = list.filter(function (i) { return i.cat === cat; }).sort(byLetter);
+        if (!items.length) return "";
+        var chosen = items.filter(function (i) { return selected[i.id]; }).length;
+        return '<div class="cat-block" data-cat="' + esc(cat) + '">' +
+          '<h3><span>' + esc(cat) + '</span> <span class="mute-text">' + chosen + "/" + items.length + "</span>" +
+          '<button class="mini-btn" data-action="match-cat-all">全选</button>' +
+          '<button class="mini-btn" data-action="match-cat-none">取消</button></h3>' +
+          '<div class="ing-picker">' + items.map(chip).join("") + "</div></div>";
+      }).join("");
+    }
+
     wrap.innerHTML = html || '<div class="empty sm">没有找到匹配的材料，换个关键词试试。</div>';
     renderAzIndex();
   }
@@ -1211,6 +1226,9 @@
   function renderAzIndex() {
     var host = document.getElementById("azIndex");
     if (!host) return;
+    // 只有「按字母」模式才需要字母检索表
+    host.style.display = matMode === "abc" ? "" : "none";
+    if (matMode !== "abc") return;
     var avail = {};
     document.querySelectorAll("#ingPickerWrap .letter-group").forEach(function (g) {
       avail[g.getAttribute("data-letter")] = true;
@@ -1976,6 +1994,11 @@
         if (body) body.scrollIntoView({ behavior: "smooth", block: "start" });
         var idx2 = document.getElementById("azIndex");
         if (idx2) idx2.querySelectorAll(".on").forEach(function (b) { b.classList.remove("on"); });
+        break;
+      }
+      case "mat-mode": {
+        matMode = value === "abc" ? "abc" : "cat";
+        renderMatch();
         break;
       }
       case "post-tag-clear": go("#/posts"); break;
