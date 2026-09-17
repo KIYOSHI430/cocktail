@@ -1450,6 +1450,10 @@ window.SEED = {
     allowUserComment: true,        // 允许用户发表评论
     allowUserDeleteOwnComment: true, // 允许用户删除自己的评论
     allowUserReport: true,         // 允许用户提交勘误（报错）
+    allowUserPost: true,           // 允许用户在交流区发帖
+    postReviewMode: "auto",        // 帖子审核：all 全部先审 / auto 规则+AI 自动判断 / none 不审
+    aiReviewEnabled: false,        // 是否启用 AI 复核（需要在下面填云函数地址）
+    aiReviewEndpoint: "",          // 例如 https://xxx.service.tcloudbase.com/review-post
     commentPageSize: 10            // 评论区每次加载条数
   },
 
@@ -1465,5 +1469,26 @@ window.SEED = {
       content: "第一次喝有点苦，第二次就上瘾了，建议冰块放足一点。", hoursAgo: 3, likes: [] },
     { id: "c-seed-5", recipeId: "espresso-martini", userId: "u-demo", username: "demo", nickname: "爱喝莫吉托的人",
       content: "咖啡一定要现萃的，摇的时候用力一点才有那层奶泡。", hoursAgo: 1, likes: ["u-admin"] }
+  ],
+
+  /* ---------- 交流区示例帖（hoursAgo 同样会在首次载入时换算成真实时间） ---------- */
+  posts: [
+    {
+      title: "新手想入坑，第一瓶金酒买哪个？",
+      content: "预算 200 以内，主要想调金汤力和干马天尼。网上看花眼了，有人说必富达有人说添加利，还有人推荐国产的。\n\n有实际喝过的朋友说说吗？",
+      category: "求助", authorKey: "demo", hoursAgo: 6, likes: ["u-admin"], comments: [
+        { authorKey: "admin", content: "先买一瓶标准的伦敦干金（比如必富达）就够用了，等你喝出偏好再换。", hoursAgo: 5 }
+      ]
+    },
+    {
+      title: "分享一个在家做透明大冰块的方法",
+      content: "之前用冰箱自带的冰格，冰块又小又不透明，化得特别快。\n\n后来换了个办法：用保温箱冻一大块，冻 24 小时以上，中间的水连续搅两次，出来的冰块又透又耐化，切开来一块能顶一晚上。",
+      category: "分享", authorKey: "admin", hoursAgo: 20, likes: []
+    },
+    {
+      title: "喝了二十来款经典之后，按难度排个序",
+      content: "按新手友好程度排的，个人感受：\n1. 金汤力 / 自由古巴 —— 基本不会失败\n2. 威士忌高球 / 莫斯科骡子 —— 注意比例就行\n3. 莫吉托 / 龙舌兰日出 —— 多两步但很快\n4. 酸类（威士忌酸、代基里、玛格丽特）—— 摇匀是关键\n5. 搅拌类（马天尼、尼格罗尼）—— 冰和水比最难把握\n\n大家觉得呢？",
+      category: "心得", authorKey: "demo", hoursAgo: 30, likes: ["u-admin", "u-demo"]
+    }
   ]
 };

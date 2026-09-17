@@ -12,11 +12,14 @@
   var adminCommentQuery = "";
   var adminCommentOnlyHidden = false;
   var reportFilter = { status: "pending", q: "" };
+  var postAdminFilter = { status: "pending", q: "" };
   var draft = { ingredients: [], search: "", cat: "全部" };
   var draftTags = [];
   var modalTags = [];
   var tagFilter = { tags: [], mode: "all" };
   var deckState = { i: 0, drag: 0, picks: [], salt: "" };
+  var postState = { category: "全部", sort: "new", q: "" };
+  var postDraftImage = "";
   var matchQuery = "";
   var editingIngredientId = null;
   var authMode = "login";
@@ -108,6 +111,8 @@
     toggleMenu(false);
     switch (r.name) {
       case "recipe": renderRecipeDetail(r.params[0]); break;
+      case "posts": renderPosts(); break;
+      case "post": renderPostDetail(r.params[0]); break;
       case "home": renderHome(); break;
       case "tags": {
         if (r.params[0]) {
@@ -152,6 +157,7 @@
       var items = [
         ["home", "#/home", "首页", "每日推荐"],
         ["recipes", "#/recipes", "配方库", "全部酒谱"],
+        ["posts", "#/posts", "交流区", "发帖交流学习"],
         ["tags", "#/tags", "想喝啥", "按口味点单"],
         ["match", "#/match", "我有啥", "看材料配酒"],
         ["new", "#/new", "添加配方", "分享你的特调"],
@@ -251,6 +257,169 @@
   }
 
   /* ---------------- 视图一：配方库 ---------------- */
+
+  /* ---------------- 交流区（发帖） ---------------- */
+
+  function postStatusBadge(p) {
+    if (p.status === "approved") return "";
+    if (p.status === "pending") return '<span class="badge warn">待审核</span>';
+    return '<span class="badge no">未通过</span>';
+  }
+
+  function postCardHTML(p) {
+    var excerpt = String(p.content || "").replace(/\s+/g, " ").slice(0, 90);
+    var cover = p.images && p.images.length
+      ? '<img class="post-thumb" src="' + esc(p.images[0]) + '" alt="" loading="lazy" onerror="this.classList.add(\'failed\')">'
+      : "";
+    return '<article class="post-card" data-action="open-post" data-id="' + p.id + '">' +
+      cover +
+      '<div class="post-main">' +
+        '<div class="post-top"><span class="post-cat">' + esc(p.category) + "</span>" + postStatusBadge(p) + "</div>" +
+        "<h3>" + esc(p.title) + "</h3>" +
+        '<p class="post-excerpt">' + esc(excerpt) + (p.content.length > 90 ? "…" : "") + "</p>" +
+        '<div class="post-foot"><span>' + esc(p.nickname) + " · " + timeAgo(p.createdAt) + "</span>" +
+          "<span>赞 " + p.likeCount + " · 回复 " + p.commentCount + "</span></div>" +
+      "</div></article>";
+  }
+
+  function renderPosts() {
+    var me = Store.currentUser();
+    var cats = ["全部"].concat(Store.postCategories());
+    view.innerHTML =
+      '<section class="page-head"><h1>交流区</h1><p>配方之外的地方：求推荐、问问题、晒作品、聊器材。发出去的内容会先过一遍审核（明显广告和违规会被拦下）。</p></section>' +
+      '<section class="toolbar filter-bar">' +
+        '<input id="postSearch" class="input search" type="search" placeholder="搜索帖子标题、内容或作者" value="' + esc(postState.q) + '">' +
+        '<div class="chips">' + cats.map(function (c) {
+          return '<button class="chip ' + (postState.category === c ? "on" : "") + '" data-action="post-cat" data-value="' + esc(c) + '">' + esc(c) + "</button>";
+        }).join("") + "</div>" +
+        '<div class="toolbar-right">' +
+          '<select id="postSort" class="input select">' +
+            option("new", "最新发布", postState.sort) + option("hot", "最多点赞", postState.sort) +
+          "</select>" +
+          '<button class="btn" data-action="new-post">我要发帖</button>' +
+        "</div>" +
+      "</section>" +
+      '<div class="result-count" id="postCount"></div>' +
+      '<section class="post-list" id="postList"></section>';
+    refreshPostList();
+  }
+
+  function refreshPostList() {
+    var list = Store.listPosts({
+      category: postState.category, sort: postState.sort, status: "all", q: postState.q
+    });
+    renderPostList(list);
+  }
+
+  function renderPostList(list) {
+    var host = document.getElementById("postList");
+    if (!host) return;
+    var count = document.getElementById("postCount");
+    if (count) count.textContent = "共 " + list.length + " 条" + (postState.q ? " · 关键词：" + postState.q : "");
+    host.innerHTML = list.length
+      ? list.map(postCardHTML).join("")
+      : '<div class="empty">还没有帖子。<br><span class="mute-text">点右上角「我要发帖」，来做第一个开口的人。</span></div>';
+  }
+
+  function openPostEditor() {
+    var me = Store.currentUser();
+    if (!me) { toast("登录后就能发帖"); authModal("login"); return; }
+    if (!Store.can("post")) { toast("管理员暂时关闭了发帖"); return; }
+    openModal(
+      "<h2>发帖</h2>" +
+      '<form id="postForm" class="form">' +
+        '<label class="field"><span>分类</span><select class="input" name="category">' +
+          Store.postCategories().map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + "</option>"; }).join("") +
+        "</select></label>" +
+        '<label class="field"><span>标题 *</span><input class="input" name="title" maxlength="40" placeholder="一句话说清楚你想聊什么"></label>' +
+        '<label class="field"><span>正文 *</span><textarea class="input" name="content" rows="6" maxlength="2000" placeholder="详细说说：你手头有什么、试过什么、想解决什么问题"></textarea></label>' +
+        '<div class="row tight"><input class="input" type="file" id="postImage" accept="image/*"><span class="mute-text">可选配一张图，会自动压缩</span></div>' +
+        '<div class="img-preview small" id="postImagePreview"></div>' +
+        '<p class="mute-text">提交前会自动检查一遍（广告、联系方式、违规内容会被拦或转人工审核）。</p>' +
+        '<div class="form-foot"><button class="btn" type="submit">发布</button>' +
+        '<button type="button" class="btn ghost" data-action="close-modal">取消</button></div>' +
+      "</form>"
+    );
+  }
+
+  function submitPost(form) {
+    var fd = new FormData(form);
+    var res = Store.addPost({
+      title: fd.get("title"), content: fd.get("content"), category: fd.get("category"),
+      images: postDraftImage ? [postDraftImage] : []
+    });
+    if (!res.ok) { toast(res.msg); return; }
+    postDraftImage = "";
+    closeModal();
+    if (res.post.status === "rejected") {
+      toast("内容没通过审核：" + res.post.rejectReason);
+      return;
+    }
+    toast(res.post.status === "pending" ? "已提交，等管理员审核后公开" : "发布成功");
+    // 配了云函数就顺手做一次 AI 复核
+    if (Store.aiReviewEndpoint()) {
+      Store.aiReviewPost(res.post.id).then(function (r) {
+        if (r.ok) {
+          toast(r.status === "approved" ? "AI 审核通过" : (r.status === "pending" ? "AI 建议人工复核" : "AI 判定未通过"));
+          render();
+        }
+      });
+    }
+    go("#/post/" + res.post.id);
+  }
+
+  function renderPostDetail(id) {
+    var p = Store.getPost(id);
+    if (!p) { view.innerHTML = '<div class="empty">找不到这个帖子。<a href="#/posts">返回交流区</a></div>'; return; }
+    Store.addPostView(id);
+    var me = Store.currentUser();
+    var canMod = me && (me.role === "admin" || p.authorId === me.id);
+    var imgs = (p.images || []).map(function (src) {
+      return '<img src="' + esc(src) + '" alt="" onerror="this.classList.add(\'failed\')">';
+    }).join("");
+    var reasons = (p.review && p.review.reasons && p.review.reasons.length)
+      ? '<p class="mute-text">审核依据：' + esc(p.review.reasons.join("；")) +
+        (p.review.source === "ai" ? "（AI 模型：" + esc(p.review.model || "ai") + "，风险分 " + p.review.risk + "）" : "（规则检查，风险分 " + p.review.risk + "）") + "</p>"
+      : "";
+
+    view.innerHTML =
+      '<a class="back" href="#/posts">← 返回交流区</a>' +
+      '<article class="panel post-detail">' +
+        '<div class="post-top"><span class="post-cat">' + esc(p.category) + "</span>" + postStatusBadge(p) + "</div>" +
+        "<h1>" + esc(p.title) + "</h1>" +
+        '<div class="post-meta">' + esc(p.nickname) + (p.isAdminAuthor ? ' <span class="badge role-badge">管理员</span>' : "") +
+          " · " + timeAgo(p.createdAt) + " · 浏览 " + (p.views || 0) + "</div>" +
+        '<div class="post-body">' + esc(p.content).replace(/\n/g, "<br>") + "</div>" +
+        (imgs ? '<div class="post-images">' + imgs + "</div>" : "") +
+        (p.status === "rejected" && p.rejectReason ? '<p class="post-reject">未通过原因：' + esc(p.rejectReason) + "</p>" : "") +
+        reasons +
+        '<div class="detail-actions">' +
+          '<button class="btn ' + (p.liked ? "" : "ghost") + '" data-action="post-like" data-id="' + p.id + '">' + (p.liked ? "已赞 " : "赞 ") + p.likeCount + "</button>" +
+          (canMod ? '<button class="btn ghost danger" data-action="post-del" data-id="' + p.id + '">删除</button>' : "") +
+        "</div>" +
+      "</article>" +
+      '<section class="panel comments">' +
+        '<div class="panel-head"><h2>回复 <span class="count">' + p.commentCount + "</span></h2></div>" +
+        (me
+          ? '<form id="postCommentForm" class="comment-form" data-id="' + p.id + '">' +
+              '<div class="comment-form-row">' + avatarHTML(me.nickname || me.username) +
+              '<textarea class="input" name="content" rows="2" maxlength="500" placeholder="说点什么…"></textarea></div>' +
+              '<div class="comment-form-foot"><span class="mute-text">以「' + esc(me.nickname || me.username) + "」的身份回复</span>" +
+              '<button class="btn" type="submit">回复</button></div>' +
+            "</form>"
+          : '<div class="comment-login">登录后就能参与讨论。<button class="btn sm" data-action="open-login">登录</button></div>') +
+        ((p.comments || []).length
+          ? '<ul class="comment-list">' + p.comments.map(function (c) {
+              var canDel = me && (me.role === "admin" || c.userId === me.id || p.authorId === me.id);
+              return '<li class="comment">' + avatarHTML(c.nickname) +
+                '<div class="c-body"><div class="c-head"><b>' + esc(c.nickname) + "</b><time>" + timeAgo(c.createdAt) + "</time></div>" +
+                '<div class="c-text">' + esc(c.content).replace(/\n/g, "<br>") + "</div>" +
+                (canDel ? '<div class="c-actions"><button class="c-op danger" data-action="post-comment-del" data-id="' + c.id + '" data-post="' + p.id + '">删除</button></div>' : "") +
+                "</div></li>";
+            }).join("") + "</ul>"
+          : '<div class="empty sm">还没有人回复</div>') +
+      "</section>";
+  }
 
   /* ---------------- 视图零：主页 · 每日推荐 ---------------- */
 
@@ -412,7 +581,22 @@
           statBox(all.filter(function (r) { return r.type === "classic"; }).length, "款经典") +
           statBox(all.filter(function (r) { return r.type === "custom"; }).length, "款特调") +
         "</div>" +
-      "</section>";
+      "</section>" +
+
+      (function () {
+        var posts = Store.listPosts({ status: "all", sort: "new" }).slice(0, 3);
+        return '<section class="home-posts">' +
+          '<div class="panel-head">' +
+            '<div><span class="kicker">交流区 · COMMUNITY</span>' +
+            "<h2>大家都在聊什么</h2></div>" +
+            '<div class="chips"><a class="chip" href="#/posts">全部帖子</a>' +
+            '<button class="chip" data-action="new-post">我要发帖</button></div>' +
+          "</div>" +
+          (posts.length
+            ? '<div class="post-list">' + posts.map(postCardHTML).join("") + "</div>"
+            : '<div class="empty sm">还没有人发言。发第一条帖，问问大家某杯酒怎么做？</div>') +
+          "</section>";
+      })();
 
     applyDeck();
     bindDeck();
@@ -1147,14 +1331,16 @@
       return;
     }
     var tabs = [
-      ["ingredients", "材料管理"], ["recipes", "配方管理"], ["comments", "评论管理"],
+      ["ingredients", "材料管理"], ["recipes", "配方管理"], ["posts", "帖子审核"], ["comments", "评论管理"],
       ["reports", "勘误处理"], ["users", "用户管理"], ["settings", "站点设置"], ["data", "数据备份"]
     ];
+    var pendingPosts = Store.postStats().pending;
     var pendingReports = Store.reportStats().pending;
     view.innerHTML =
       '<section class="page-head"><h1>管理后台</h1><p>材料、配方、评论、用户都由你说了算，所有改动即时生效。</p></section>' +
       '<nav class="tabs">' + tabs.map(function (t) {
-        var badge = (t[0] === "reports" && pendingReports) ? ' <em class="tab-badge">' + pendingReports + "</em>" : "";
+        var badgeNum = (t[0] === "reports") ? pendingReports : (t[0] === "posts" ? pendingPosts : 0);
+        var badge = badgeNum ? ' <em class="tab-badge">' + badgeNum + "</em>" : "";
         return '<button class="tab ' + (adminTab === t[0] ? "on" : "") + '" data-action="admin-tab" data-value="' + t[0] + '">' + t[1] + badge + "</button>";
       }).join("") + "</nav>" +
       '<section id="adminBody" class="panel">' + adminBodyHTML() + "</section>";
@@ -1164,6 +1350,7 @@
     if (adminTab === "ingredients") return adminIngredientsHTML();
     if (adminTab === "recipes") return adminRecipesHTML();
     if (adminTab === "comments") return adminCommentsHTML();
+    if (adminTab === "posts") return adminPostsHTML();
     if (adminTab === "reports") return adminReportsHTML();
     if (adminTab === "users") return adminUsersHTML();
     if (adminTab === "settings") return adminSettingsHTML();
@@ -1268,6 +1455,55 @@
       '<div id="adminCommentList">' + adminCommentListHTML() + "</div>";
   }
 
+  function adminPostListHTML() {
+    var list = Store.listPosts({ status: postAdminFilter.status === "all" ? "all" : postAdminFilter.status, q: postAdminFilter.q });
+    if (!list.length) return '<div class="empty sm">没有符合条件的帖子</div>';
+    var rows = list.map(function (p) {
+      var status = p.status === "approved" ? '<span class="badge ok">已通过</span>'
+        : p.status === "pending" ? '<span class="badge warn">待审核</span>' : '<span class="badge no">未通过</span>';
+      var rv = p.review || {};
+      var src = rv.source === "ai" ? "AI·" + (rv.model || "模型") : (rv.source === "rule" ? "规则" : "—");
+      return "<tr>" +
+        '<td><a href="#/post/' + p.id + '">' + esc(p.title) + "</a>" +
+          '<div class="mute-text">' + esc(String(p.content).replace(/\s+/g, " ").slice(0, 50)) + "…</div></td>" +
+        "<td>" + esc(p.category) + "</td>" +
+        "<td>" + esc(p.nickname) + "</td>" +
+        '<td class="mute-text">' + timeAgo(p.createdAt) + "</td>" +
+        "<td>" + src + (typeof rv.risk === "number" ? " · " + rv.risk + " 分" : "") +
+          (rv.reasons && rv.reasons.length ? '<div class="mute-text">' + esc(rv.reasons.join("；")) + "</div>" : "") + "</td>" +
+        "<td>" + status + "</td>" +
+        '<td class="ops">' +
+          (p.status !== "approved" ? '<button class="btn ghost sm" data-action="post-approve" data-id="' + p.id + '">通过</button>' : "") +
+          (p.status !== "rejected" ? '<button class="btn ghost sm" data-action="post-reject" data-id="' + p.id + '">拒绝</button>' : "") +
+          '<button class="btn ghost sm danger" data-action="post-del-admin" data-id="' + p.id + '">删除</button>' +
+        "</td></tr>";
+    }).join("");
+    return '<div class="table-wrap"><table class="table"><thead><tr>' +
+      "<th>帖子</th><th>分类</th><th>作者</th><th>时间</th><th>审核结果</th><th>状态</th><th>操作</th>" +
+      "</tr></thead><tbody>" + rows + "</tbody></table></div>";
+  }
+
+  function adminPostsHTML() {
+    var s = Store.postStats();
+    var chips = [["pending", "待审核"], ["approved", "已通过"], ["rejected", "未通过"], ["all", "全部"]];
+    var ai = Store.getSettings();
+    return "<h3>帖子概览</h3>" +
+      '<div class="stats-row">' + statBox(s.pending, "待审核") + statBox(s.approved, "已通过") +
+      statBox(s.rejected, "未通过") + statBox(s.today, "今日新帖") + statBox(s.comments, "回帖") + "</div>" +
+      '<div class="review-note">' +
+        "<b>审核方式</b>：规则检查" + (Store.aiReviewEndpoint() ? " + AI 复核（已启用）" : "（AI 复核未启用）") +
+        "。<span class=\"mute-text\">规则层现在就能用：广告、联系方式、违规词会被自动拦下或转人工；配上云函数地址后会把不确定的内容再交给 AI 判断。设置入口在「站点设置」。</span>" +
+      "</div>" +
+      '<div class="row tight">' +
+        '<div class="chips">' + chips.map(function (c) {
+          return '<button class="chip ' + (postAdminFilter.status === c[0] ? "on" : "") +
+            '" data-action="post-filter" data-value="' + c[0] + '">' + c[1] + "</button>";
+        }).join("") + "</div>" +
+        '<input id="postAdminQ" class="input search" placeholder="搜索标题 / 内容 / 作者" value="' + esc(postAdminFilter.q) + '">' +
+      "</div>" +
+      '<div id="adminPostList">' + adminPostListHTML() + "</div>";
+  }
+
   function adminReportListHTML() {
     var list = Store.listReports({ status: reportFilter.status, q: reportFilter.q });
     if (!list.length) return '<div class="empty sm">没有符合条件的勘误记录</div>';
@@ -1365,6 +1601,7 @@
         '<div class="switch-list">' +
           switchRow("allowUserPublish", "允许普通用户发布配方", s.allowUserPublish) +
           switchRow("needReview", "用户发布的配方需要审核后才公开", s.needReview) +
+          switchRow("allowUserPost", "允许普通用户在交流区发帖", s.allowUserPost !== false) +
           switchRow("allowUserVideo", "允许普通用户推荐 / 补充教学视频", s.allowUserVideo) +
           switchRow("allowUserComment", "允许普通用户发表评论", s.allowUserComment) +
           switchRow("allowUserEditOwnRecipe", "允许用户编辑自己发布的配方", s.allowUserEditOwnRecipe) +
@@ -1372,6 +1609,20 @@
           switchRow("allowUserDeleteOwnComment", "允许用户删除自己的评论", s.allowUserDeleteOwnComment) +
           switchRow("allowUserReport", "允许用户提交勘误（报错）", s.allowUserReport !== false) +
         "</div>" +
+        '<h3 class="form-title">交流区审核</h3>' +
+        '<div class="row">' +
+          '<label class="field"><span>审核方式</span><select class="input" name="postReviewMode">' +
+            '<option value="all"' + (s.postReviewMode === "all" ? " selected" : "") + ">全部先审（每篇都要你手动过）</option>" +
+            '<option value="auto"' + ((s.postReviewMode || "auto") === "auto" ? " selected" : "") + ">智能审核（规则判断，低风险直接发）</option>" +
+            '<option value="none"' + (s.postReviewMode === "none" ? " selected" : "") + ">不审核（全部直接发）</option>" +
+          "</select></label>" +
+        "</div>" +
+        '<div class="switch-list">' +
+          switchRow("aiReviewEnabled", "启用 AI 复核（需要填下面的云函数地址）", s.aiReviewEnabled) +
+        "</div>" +
+        '<label class="field"><span>AI 审核云函数地址<em class="opt">选填</em></span>' +
+          '<input class="input" name="aiReviewEndpoint" value="' + esc(s.aiReviewEndpoint || "") + '" placeholder="https://xxxx.service.tcloudbase.com/review-post"></label>' +
+        '<p class="mute-text">API Key 不能放在网页里（仓库是公开的，会被盗用）。正确做法是：Key 存在云函数的环境变量里，网页只把内容发给云函数。云函数示例代码见项目里的 <code>cloud/review-post/</code>。</p>' +
         '<div class="form-foot"><button class="btn" type="submit">保存设置</button></div>' +
       "</form>";
   }
@@ -1477,6 +1728,33 @@
       case "deck-prev": deckGo(-1); break;
       case "deck-next": deckGo(1); break;
       case "deck-dot": deckState.i = Number(value) || 0; deckState.drag = 0; applyDeck(); break;
+
+      /* 交流区 */
+      case "new-post": openPostEditor(); break;
+      case "open-post": go("#/post/" + id); break;
+      case "post-cat": postState.category = value; renderPosts(); break;
+      case "post-like": {
+        var pl = Store.togglePostLike(id);
+        if (!pl.ok) { toast(pl.msg); authModal("login"); return; }
+        renderPostDetail(id);
+        break;
+      }
+      case "post-del": {
+        if (!confirm("确定删除这个帖子吗？")) break;
+        var pd = Store.deletePost(id);
+        if (!pd.ok) { toast(pd.msg); break; }
+        toast("已删除");
+        go("#/posts");
+        break;
+      }
+      case "post-comment-del": {
+        if (!confirm("确定删除这条回复吗？")) break;
+        var pcd = Store.deletePostComment(el.getAttribute("data-post"), id);
+        if (!pcd.ok) { toast(pcd.msg); break; }
+        toast("已删除");
+        renderPostDetail(el.getAttribute("data-post"));
+        break;
+      }
       case "deck-shuffle": {
         deckState.salt = "s" + Date.now();
         deckState.picks = Store.dailyPicks(4, deckState.salt);
@@ -1579,6 +1857,25 @@
       case "comment-reset": adminCommentQuery = ""; adminCommentOnlyHidden = false; refreshAdmin(); break;
 
       /* 勘误处理（后台） */
+      /* 帖子审核（后台） */
+      case "post-filter": postAdminFilter.status = value; refreshAdmin(); break;
+      case "post-approve": Store.setPostStatus(id, "approved"); toast("已通过并公开"); refreshAdmin(); break;
+      case "post-reject": {
+        openModal(
+          "<h2>拒绝这篇帖子</h2>" +
+          '<form id="postRejectForm" class="form" data-id="' + id + '">' +
+            '<label class="field"><span>原因（会显示给作者）</span><textarea class="input" name="reason" rows="3" placeholder="例如：疑似广告；内容与调酒无关"></textarea></label>' +
+            '<div class="form-foot"><button class="btn" type="submit">确认拒绝</button>' +
+            '<button type="button" class="btn ghost" data-action="close-modal">取消</button></div>' +
+          "</form>"
+        );
+        break;
+      }
+      case "post-del-admin": {
+        if (!confirm("确定删除这篇帖子吗？")) break;
+        Store.deletePost(id); toast("已删除"); refreshAdmin(); break;
+      }
+
       case "report-filter": reportFilter.status = value; refreshAdmin(); break;
       case "report-done": Store.updateReport(id, { status: "done" }); toast("已标记为处理完成"); refreshAdmin(); break;
       case "report-ignore": Store.updateReport(id, { status: "ignored" }); toast("已忽略"); refreshAdmin(); break;
@@ -1877,6 +2174,24 @@
       toast("勘误已提交，谢谢！管理员会尽快核对");
       return;
     }
+    if (form.id === "postForm") return submitPost(form);
+    if (form.id === "postCommentForm") {
+      var fdPc = new FormData(form);
+      var pcRes = Store.addPostComment(form.getAttribute("data-id"), fdPc.get("content"));
+      if (!pcRes.ok) { toast(pcRes.msg); return; }
+      toast("回复成功");
+      renderPostDetail(form.getAttribute("data-id"));
+      return;
+    }
+    if (form.id === "postRejectForm") {
+      var fdRj = new FormData(form);
+      var rj = Store.setPostStatus(form.getAttribute("data-id"), "rejected", fdRj.get("reason"));
+      if (!rj.ok) { toast(rj.msg); return; }
+      closeModal();
+      toast("已拒绝");
+      refreshAdmin();
+      return;
+    }
     if (form.id === "settingsForm") {
       var fd5 = new FormData(form);
       Store.updateSettings({
@@ -1889,7 +2204,11 @@
         allowUserEditOwnRecipe: !!fd5.get("allowUserEditOwnRecipe"),
         allowUserDeleteOwnRecipe: !!fd5.get("allowUserDeleteOwnRecipe"),
         allowUserDeleteOwnComment: !!fd5.get("allowUserDeleteOwnComment"),
-        allowUserReport: !!fd5.get("allowUserReport")
+        allowUserReport: !!fd5.get("allowUserReport"),
+        allowUserPost: !!fd5.get("allowUserPost"),
+        postReviewMode: fd5.get("postReviewMode") || "auto",
+        aiReviewEnabled: !!fd5.get("aiReviewEnabled"),
+        aiReviewEndpoint: String(fd5.get("aiReviewEndpoint") || "").trim()
       });
       toast("设置已保存");
       renderHeader();
@@ -1920,6 +2239,13 @@
       reportFilter.q = t.value;
       var rbox = document.getElementById("adminReportList");
       if (rbox) rbox.innerHTML = adminReportListHTML();
+    } else if (t.id === "postSearch") {
+      postState.q = t.value;
+      refreshPostList();
+    } else if (t.id === "postAdminQ") {
+      postAdminFilter.q = t.value;
+      var pbox = document.getElementById("adminPostList");
+      if (pbox) pbox.innerHTML = adminPostListHTML();
     }
   });
 
@@ -1933,6 +2259,18 @@
       adminCommentOnlyHidden = t.checked;
       var box = document.getElementById("adminCommentList");
       if (box) box.innerHTML = adminCommentListHTML();
+    } else if (t.id === "postSort") {
+      postState.sort = t.value;
+      refreshPostList();
+    } else if (t.id === "postImage" && t.files && t.files[0]) {
+      var pfile = t.files[0];
+      if (pfile.size > 6 * 1024 * 1024) { toast("图片太大，请选 6MB 以内的图片"); t.value = ""; return; }
+      downscaleImage(pfile, 900, function (dataUrl) {
+        if (!dataUrl) { toast("图片读取失败"); return; }
+        postDraftImage = dataUrl;
+        var pv = document.getElementById("postImagePreview");
+        if (pv) pv.innerHTML = '<img src="' + dataUrl + '" alt="">';
+      });
     } else if (t.id === "imgFile" && t.files && t.files[0]) {
       var file = t.files[0];
       if (file.size > 6 * 1024 * 1024) { toast("图片太大，请选 6MB 以内的图片"); t.value = ""; return; }

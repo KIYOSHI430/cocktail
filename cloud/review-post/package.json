@@ -1,0 +1,7 @@
+{
+  "name": "review-post",
+  "version": "1.0.0",
+  "description": "鸡尾酒法典 · 帖子 AI 审核云函数（零依赖，只用 Node 内置模块）",
+  "main": "index.js",
+  "engines": { "node": ">=16" }
+}

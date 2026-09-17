@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "cocktail_app_v1";
-  var DATA_VERSION = 4;   // v4：新增拼音索引与勘误表
+  var DATA_VERSION = 5;   // v5：新增交流区（帖子）与 AI 审核配置
   var state = null;
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -29,6 +29,37 @@
       c.pinned = !!c.pinned;
       c.hidden = false;
       return c;
+    });
+  }
+
+  /** 把种子里的示例帖换算成真实时间，并补上作者信息 */
+  function seedPosts() {
+    var now = Date.now();
+    function authorOf(key) {
+      var u = window.SEED.users.filter(function (x) { return x.username === key; })[0];
+      return u || { id: "u-" + key, username: key, nickname: key };
+    }
+    return clone(window.SEED.posts || []).map(function (p) {
+      var a = authorOf(p.authorKey || "admin");
+      return {
+        id: p.id || newId("post"),
+        title: p.title,
+        content: p.content,
+        images: [],
+        category: p.category || "闲聊",
+        authorId: a.id, username: a.username, nickname: a.nickname || a.username,
+        createdAt: new Date(now - (p.hoursAgo || 0) * 3600 * 1000).toISOString(),
+        status: "approved",
+        review: { source: "rule", risk: 0, reasons: [], at: new Date().toISOString() },
+        rejectReason: "", likes: p.likes || [], views: 0,
+        comments: (p.comments || []).map(function (c) {
+          var ca = authorOf(c.authorKey || "demo");
+          return {
+            id: newId("pc"), userId: ca.id, username: ca.username, nickname: ca.nickname || ca.username,
+            content: c.content, createdAt: new Date(now - (c.hoursAgo || 0) * 3600 * 1000).toISOString(), likes: []
+          };
+        })
+      };
     });
   }
 
@@ -94,6 +125,7 @@
       users: clone(window.SEED.users).map(normalizeUser),
       comments: seedComments(),
       reports: [],
+      posts: seedPosts(),
       settings: clone(window.SEED.settings),
       sessionUserId: null,
       guestIngredients: []
@@ -134,6 +166,7 @@
     s.settings = Object.assign(clone(window.SEED.settings), s.settings || {});
     if (!Array.isArray(s.comments)) s.comments = seedComments();
     if (!Array.isArray(s.reports)) s.reports = [];
+    if (!Array.isArray(s.posts)) s.posts = seedPosts();
 
     // 站点更名：只有还停留在旧名字时才跟着改，你自己设过的名字不会被覆盖
     if (s.settings.siteName === "今晚喝什么") s.settings.siteName = "鸡尾酒法典";
@@ -154,6 +187,7 @@
           state.settings = Object.assign(clone(window.SEED.settings), state.settings || {});
           state.comments = state.comments || [];
           state.reports = state.reports || [];
+          state.posts = state.posts || [];
           state.users.forEach(normalizeUser);
           state.recipes.forEach(normalizeRecipe);
           if (oldVersion < DATA_VERSION) persist();
@@ -529,7 +563,7 @@
     user: [
       "browse", "favorite",
       "publishRecipe", "editOwnRecipe", "deleteOwnRecipe",
-      "suggestVideo", "comment", "deleteOwnComment", "report"
+      "suggestVideo", "comment", "deleteOwnComment", "report", "post"
     ]
   };
 
@@ -547,6 +581,7 @@
     if (action === "deleteOwnRecipe" && !s.allowUserDeleteOwnRecipe) return false;
     if (action === "deleteOwnComment" && !s.allowUserDeleteOwnComment) return false;
     if (action === "report" && s.allowUserReport === false) return false;
+    if (action === "post" && s.allowUserPost === false) return false;
     return true;
   }
 
@@ -742,6 +777,245 @@
   /* ================= 检索 ================= */
 
   /* ================= 勘误（用户报错，管理员处理） ================= */
+
+  /* ================= 交流区（发帖） =================
+     审核分三层：
+       1. 规则层（本地，0 成本）——明显违规直接拦，命中就带理由
+       2. AI 层（可选，云函数）——判断"有没有广告感、有没有攻击性、跟调酒有没有关系"
+       3. 人工层——管理员在后台复核，可改判
+     规则层现在就能跑；AI 层只要在后台填上云函数地址就自动启用。 */
+
+  var POST_CATEGORIES = ["求助", "分享", "心得", "器材", "闲聊"];
+
+  var RULE_PATTERNS = [
+    { re: /(微信|weixin|wechat|vx|威信|薇信|加我|私聊|私我)/i, score: 40, reason: "疑似引流（提到微信/私聊）" },
+    { re: /(qq|扣扣)\s*[:：]?\s*\d{5,}/i, score: 45, reason: "疑似留下联系方式" },
+    { re: /1[3-9]\d{9}/, score: 50, reason: "疑似手机号" },
+    { re: /(https?:\/\/|www\.)/i, score: 25, reason: "包含外部链接" },
+    { re: /(代购|出售|购买|下单|批发|招商|代理|秒杀|特价|包邮|货源)/, score: 35, reason: "疑似广告或交易" },
+    { re: /(赌博|博彩|彩票|冰毒|大麻|枪支|迷药)/, score: 80, reason: "涉及违法内容" },
+    { re: /(色情|约炮|援交|裸聊)/, score: 80, reason: "涉及低俗内容" },
+    { re: /(未成年|学生妹|灌醉)/, score: 60, reason: "涉及未成年人或不当内容" },
+    { re: /(傻[逼比]|智障|去死|滚蛋)/, score: 30, reason: "疑似侮辱性用语" }
+  ];
+
+  /** 只做规则的本地审核，返回风险分与命中原因 */
+  function ruleReview(title, content) {
+    var text = String(title || "") + "\n" + String(content || "");
+    var reasons = [];
+    var score = 0;
+    RULE_PATTERNS.forEach(function (p) {
+      if (p.re.test(text)) { score += p.score; reasons.push(p.reason); }
+    });
+    if (/(.)\1{6,}/.test(text)) { score += 35; reasons.push("有大量重复字符"); }
+    var plain = text.replace(/\s/g, "");
+    if (plain.length < 6) { score += 20; reasons.push("内容太短"); }
+    if (plain.length > 0 && !/[\u4e00-\u9fa5a-zA-Z0-9]/.test(plain)) { score += 25; reasons.push("没有有效文字"); }
+    return { risk: Math.min(100, score), reasons: reasons };
+  }
+
+  /** 把风险分换成处理结果 */
+  function statusByRisk(risk) {
+    if (risk >= 70) return "rejected";
+    if (risk >= 30) return "pending";
+    return "approved";
+  }
+
+  function postCategories() { return POST_CATEGORIES.slice(); }
+
+  function addPost(data) {
+    var me = currentUser();
+    if (!me) return { ok: false, msg: "请先登录后再发帖" };
+    if (!can("post")) return { ok: false, msg: "管理员暂时关闭了发帖" };
+    var title = String((data && data.title) || "").trim();
+    var content = String((data && data.content) || "").trim();
+    if (title.length < 2) return { ok: false, msg: "标题至少 2 个字" };
+    if (title.length > 40) return { ok: false, msg: "标题最多 40 个字" };
+    if (content.length < 5) return { ok: false, msg: "正文至少 5 个字" };
+    if (content.length > 2000) return { ok: false, msg: "正文最多 2000 个字" };
+
+    var mode = state.settings.postReviewMode || "auto";
+    var rule = ruleReview(title, content);
+    var status = mode === "none" ? "approved" : (mode === "all" ? "pending" : statusByRisk(rule.risk));
+    if (me.role === "admin") status = "approved";   // 管理员自己发的直接通过
+
+    var post = {
+      id: newId("post"),
+      title: title,
+      content: content,
+      images: Array.isArray(data.images) ? data.images.slice(0, 3) : [],
+      category: POST_CATEGORIES.indexOf(data.category) >= 0 ? data.category : "闲聊",
+      authorId: me.id, username: me.username, nickname: me.nickname || me.username,
+      createdAt: new Date().toISOString(),
+      status: status,
+      review: { source: "rule", risk: rule.risk, reasons: rule.reasons, at: new Date().toISOString() },
+      rejectReason: status === "rejected" ? rule.reasons.join("；") : "",
+      likes: [], views: 0, comments: []
+    };
+    state.posts.unshift(post);
+    persist();
+    return { ok: true, post: post, rule: rule };
+  }
+
+  /** 帖子是否需要送 AI 复核（配了云函数地址、且开启开关时） */
+  function aiReviewEndpoint() {
+    var s = state.settings;
+    return s.aiReviewEnabled && s.aiReviewEndpoint ? String(s.aiReviewEndpoint) : "";
+  }
+
+  /** 用云函数做 AI 复核，结果回写帖子。失败就保留规则层结论。 */
+  function aiReviewPost(postId) {
+    var url = aiReviewEndpoint();
+    if (!url || typeof fetch !== "function") return Promise.resolve({ ok: false, msg: "未配置 AI 审核" });
+    var post = (state.posts || []).filter(function (p) { return p.id === postId; })[0];
+    if (!post) return Promise.resolve({ ok: false, msg: "帖子不存在" });
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: post.title, content: post.content, category: post.category })
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      if (!data || typeof data.risk !== "number") throw new Error("返回格式不对");
+      post.review = {
+        source: "ai", risk: data.risk,
+        reasons: Array.isArray(data.reasons) ? data.reasons : [],
+        model: data.model || "ai",
+        at: new Date().toISOString()
+      };
+      if (!post.manualReview) post.status = statusByRisk(data.risk);
+      if (post.status === "rejected") post.rejectReason = post.review.reasons.join("；");
+      persist();
+      return { ok: true, status: post.status, review: post.review };
+    }).catch(function (e) {
+      return { ok: false, msg: e.message };
+    });
+  }
+
+  function listPosts(options) {
+    options = options || {};
+    var me = currentUser();
+    var isAdmin = !!(me && me.role === "admin");
+    var list = (state.posts || []).slice();
+    if (options.status && options.status !== "all") list = list.filter(function (p) { return p.status === options.status; });
+    if (options.category && options.category !== "全部") list = list.filter(function (p) { return p.category === options.category; });
+    if (options.authorId) list = list.filter(function (p) { return p.authorId === options.authorId; });
+    var q = String(options.q || "").trim().toLowerCase();
+    if (q) {
+      list = list.filter(function (p) {
+        return (p.title + " " + p.content + " " + p.nickname).toLowerCase().indexOf(q) >= 0;
+      });
+    }
+    if (!isAdmin && !options.authorId) {
+      // 普通用户只看得到通过的，以及自己发的（待审/被拒自己能看到状态）
+      list = list.filter(function (p) {
+        return p.status === "approved" || (me && p.authorId === me.id);
+      });
+    }
+    var sort = options.sort || "new";
+    list.sort(function (a, b) {
+      if (sort === "hot") return (b.likes || []).length - (a.likes || []).length;
+      return String(b.createdAt).localeCompare(String(a.createdAt));
+    });
+    return list.map(function (p) {
+      var out = Object.assign({}, p);
+      out.likeCount = (p.likes || []).length;
+      out.liked = !!(me && (p.likes || []).indexOf(me.id) >= 0);
+      out.mine = !!(me && p.authorId === me.id);
+      out.commentCount = (p.comments || []).length;
+      out.isAdminAuthor = (state.users.filter(function (u) { return u.id === p.authorId; })[0] || {}).role === "admin";
+      return out;
+    });
+  }
+
+  function getPost(id) {
+    return listPosts({ status: "all", authorId: null }).filter(function (p) { return p.id === id; })[0] || null;
+  }
+
+  function addPostComment(postId, content) {
+    var me = currentUser();
+    if (!me) return { ok: false, msg: "请先登录" };
+    if (!can("post")) return { ok: false, msg: "管理员暂时关闭了交流区" };
+    content = String(content || "").trim();
+    if (!content) return { ok: false, msg: "回复不能为空" };
+    if (content.length > 500) return { ok: false, msg: "回复最多 500 字" };
+    var p = (state.posts || []).filter(function (x) { return x.id === postId; })[0];
+    if (!p) return { ok: false, msg: "帖子不存在" };
+    var c = {
+      id: newId("pc"), userId: me.id, username: me.username, nickname: me.nickname || me.username,
+      content: content, createdAt: new Date().toISOString(), likes: []
+    };
+    p.comments.push(c);
+    persist();
+    return { ok: true, comment: c };
+  }
+
+  function deletePostComment(postId, commentId) {
+    var me = currentUser();
+    if (!me) return { ok: false, msg: "请先登录" };
+    var p = (state.posts || []).filter(function (x) { return x.id === postId; })[0];
+    if (!p) return { ok: false, msg: "帖子不存在" };
+    var c = p.comments.filter(function (x) { return x.id === commentId; })[0];
+    if (!c) return { ok: false, msg: "回复不存在" };
+    if (me.role !== "admin" && c.userId !== me.id && p.authorId !== me.id) return { ok: false, msg: "只能删自己的回复" };
+    p.comments = p.comments.filter(function (x) { return x.id !== commentId; });
+    persist();
+    return { ok: true };
+  }
+
+  function togglePostLike(postId) {
+    var me = currentUser();
+    if (!me) return { ok: false, msg: "登录后才能点赞" };
+    var p = (state.posts || []).filter(function (x) { return x.id === postId; })[0];
+    if (!p) return { ok: false, msg: "帖子不存在" };
+    p.likes = p.likes || [];
+    var i = p.likes.indexOf(me.id);
+    if (i >= 0) p.likes.splice(i, 1); else p.likes.push(me.id);
+    persist();
+    return { ok: true, liked: i < 0, count: p.likes.length };
+  }
+
+  function addPostView(id) {
+    var p = (state.posts || []).filter(function (x) { return x.id === id; })[0];
+    if (p) { p.views = (p.views || 0) + 1; persist(); }
+  }
+
+  function setPostStatus(id, status, reason) {
+    var me = currentUser();
+    if (!me || me.role !== "admin") return { ok: false, msg: "只有管理员可以审核" };
+    var p = (state.posts || []).filter(function (x) { return x.id === id; })[0];
+    if (!p) return { ok: false, msg: "帖子不存在" };
+    p.status = status;
+    p.manualReview = true;
+    p.rejectReason = status === "rejected" ? String(reason || "").trim() : "";
+    if (status === "rejected" && !p.rejectReason) p.rejectReason = "管理员判定不适合发布";
+    p.reviewedBy = me.username;
+    p.reviewedAt = new Date().toISOString();
+    persist();
+    return { ok: true, post: p };
+  }
+
+  function deletePost(id) {
+    var me = currentUser();
+    if (!me) return { ok: false, msg: "请先登录" };
+    var p = (state.posts || []).filter(function (x) { return x.id === id; })[0];
+    if (!p) return { ok: false, msg: "帖子不存在" };
+    if (me.role !== "admin" && p.authorId !== me.id) return { ok: false, msg: "只能删除自己的帖子" };
+    state.posts = (state.posts || []).filter(function (x) { return x.id !== id; });
+    persist();
+    return { ok: true };
+  }
+
+  function postStats() {
+    var list = state.posts || [];
+    var today = new Date().toISOString().slice(0, 10);
+    return {
+      total: list.length,
+      approved: list.filter(function (p) { return p.status === "approved"; }).length,
+      pending: list.filter(function (p) { return p.status === "pending"; }).length,
+      rejected: list.filter(function (p) { return p.status === "rejected"; }).length,
+      today: list.filter(function (p) { return String(p.createdAt).slice(0, 10) === today; }).length,
+      comments: list.reduce(function (n, p) { return n + (p.comments || []).length; }, 0)
+    };
+  }
 
   var REPORT_TYPES = ["图片有误", "材料有误", "用量有误", "步骤有误", "标签有误", "材料库有误", "其他问题"];
 
@@ -1082,6 +1356,7 @@
       state.settings = Object.assign(clone(window.SEED.settings), state.settings || {});
       state.comments = state.comments || [];
       state.reports = state.reports || [];
+      state.posts = state.posts || [];
       state.users.forEach(normalizeUser);
       state.recipes.forEach(normalizeRecipe);
       state.sessionUserId = null;
@@ -1179,6 +1454,22 @@
     reportStats: reportStats,
     updateReport: updateReport,
     deleteReport: deleteReport,
+
+    // 交流区
+    postCategories: postCategories,
+    addPost: addPost,
+    listPosts: listPosts,
+    getPost: getPost,
+    addPostComment: addPostComment,
+    deletePostComment: deletePostComment,
+    togglePostLike: togglePostLike,
+    addPostView: addPostView,
+    setPostStatus: setPostStatus,
+    deletePost: deletePost,
+    postStats: postStats,
+    ruleReview: ruleReview,
+    aiReviewPost: aiReviewPost,
+    aiReviewEndpoint: aiReviewEndpoint,
 
     // 设置与数据
     getSettings: getSettings,
