@@ -1,43 +1,88 @@
 /**
- * 云函数：鸡尾酒法典 · 数据接口（PostgreSQL 版）
+ * 云函数：鸡尾酒法典 · 数据接口（CloudBase rdb / PostgreSQL 版）
+ *
+ * 数据库访问方式来自云开发控制台「接入指引 → 后端框架 → PostgreSQL 数据库」：
+ *     const { data, error } = await cloudbase.rdb().from("表名").select("*").limit(10);
  *
  * 设计思路（决定了前端几乎不用改）：
  *   1. 前端打开页面时调一次 `bootstrap`，把「材料 + 配方 + 帖子 + 评论 + 设置 + 当前用户」整包拉下来
  *   2. 之后界面的读操作都在内存里进行（原来的同步代码照旧跑）
  *   3. 所有写操作都调这个云函数，服务端校验身份、写数据库，返回最新数据让前端覆盖内存
  *
- * 需要配置的环境变量（云函数 → 配置 → 环境变量）：
- *   DATABASE_URL   PostgreSQL 连接串，从「SQL 型数据库 → 配置」里复制，
- *                  形如 postgresql://用户名:密码@内网地址:5432/数据库名
- *
  * 安全要点：
- *   - 数据库只允许这个云函数访问（同环境内网），前端拿不到连接信息
+ *   - 数据库对公网关闭，只由云函数在环境内访问
  *   - 密码用 Node 自带的 scrypt 加盐哈希，明文不落库
  *   - 登录签发 token，存在 sessions 表，30 天有效
  */
 
-const { Pool } = require("pg");
+const cloudbaseSDK = require("@cloudbase/node-sdk");
 const crypto = require("crypto");
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 5,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 8000
-});
+/* 云函数里会自动注入环境凭据，通常不用另外配；
+   如果你想在本地跑，就在环境变量里提供 CLOUDBASE_ENV_ID / CLOUDBASE_SECRETID / CLOUDBASE_SECRETKEY */
+const initOptions = { env: process.env.CLOUDBASE_ENV_ID || cloudbaseSDK.SYMBOL_CURRENT_ENV };
+if (process.env.CLOUDBASE_SECRETID && process.env.CLOUDBASE_SECRETKEY) {
+  initOptions.secretId = process.env.CLOUDBASE_SECRETID;
+  initOptions.secretKey = process.env.CLOUDBASE_SECRETKEY;
+}
+const app = cloudbaseSDK.init(initOptions);
 
 const SESSION_DAYS = 30;
 
-/* ---------------- 数据库小工具 ---------------- */
+/* ---------------- 数据库小工具（把 rdb() 的链式调用包一下） ---------------- */
 
-async function q(sql, params) {
-  const res = await pool.query(sql, params || []);
-  return res.rows;
+function toError(error) {
+  if (!error) return null;
+  return new Error(error.message || error.error || JSON.stringify(error));
 }
-async function one(sql, params) {
-  const rows = await q(sql, params);
+
+function applyFilters(query, filters) {
+  (filters || []).forEach(function (f) {
+    if (f.op === "in") query = query.in(f.col, f.val);
+    else if (f.op === "neq") query = query.neq(f.col, f.val);
+    else if (f.op === "gt") query = query.gt(f.col, f.val);
+    else query = query.eq(f.col, f.val);
+  });
+  return query;
+}
+
+/** 查询多行 */
+async function dbSelect(table, filters, options) {
+  options = options || {};
+  let query = app.rdb().from(table).select("*");
+  query = applyFilters(query, filters);
+  if (options.order) query = query.order(options.order, { ascending: options.asc !== false });
+  if (options.limit) query = query.limit(options.limit);
+  const { data, error } = await query;
+  if (error) throw toError(error);
+  return data || [];
+}
+
+/** 查询一行 */
+async function dbSelectOne(table, filters) {
+  const rows = await dbSelect(table, filters, { limit: 1 });
   return rows[0] || null;
 }
+
+/** 插入一行 */
+async function dbInsert(table, row) {
+  const { error } = await app.rdb().from(table).insert([row]);
+  if (error) throw toError(error);
+  return row;
+}
+
+/** 更新（按 id） */
+async function dbUpdate(table, id, patch) {
+  const { error } = await app.rdb().from(table).update(patch).eq("id", id);
+  if (error) throw toError(error);
+}
+
+/** 删除（按 id） */
+async function dbDelete(table, id) {
+  const { error } = await app.rdb().from(table).delete().eq("id", id);
+  if (error) throw toError(error);
+}
+
 function ok(data) { return { ok: true, data: data }; }
 function fail(msg) { return { ok: false, msg: msg }; }
 function newId(prefix) {
@@ -53,21 +98,21 @@ function hashPassword(password, salt) {
 function checkPassword(user, password) {
   if (!user || !user.hash || !user.salt) return false;
   const h = crypto.scryptSync(String(password), user.salt, 64).toString("hex");
-  return h.length === String(user.hash).length && crypto.timingSafeEqual(Buffer.from(h), Buffer.from(user.hash));
+  return h.length === String(user.hash).length &&
+    crypto.timingSafeEqual(Buffer.from(h), Buffer.from(String(user.hash)));
 }
 
 async function createSession(userId) {
   const token = crypto.randomBytes(24).toString("hex");
-  await q("insert into sessions (token, user_id, expires_at) values ($1,$2,$3)",
-    [token, userId, Date.now() + SESSION_DAYS * 86400000]);
+  await dbInsert("sessions", { token: token, user_id: userId, expires_at: Date.now() + SESSION_DAYS * 86400000 });
   return token;
 }
 
 async function userByToken(token) {
   if (!token) return null;
-  const s = await one("select * from sessions where token = $1", [token]);
+  const s = await dbSelectOne("sessions", [{ col: "token", val: token }]);
   if (!s || Number(s.expires_at) < Date.now()) return null;
-  return one("select * from users where id = $1", [s.user_id]);
+  return dbSelectOne("users", [{ col: "id", val: s.user_id }]);
 }
 
 function publicUser(u) {
@@ -118,16 +163,16 @@ function rowPost(r) {
 /* ---------------- 整包数据 ---------------- */
 
 async function getSettings() {
-  const row = await one("select data from settings where id = 'site'");
+  const row = await dbSelectOne("settings", [{ col: "id", val: "site" }]);
   return (row && row.data) || {};
 }
 
 async function bootstrap(token) {
   const [ingredients, recipes, posts, comments, settings, user] = await Promise.all([
-    q("select * from ingredients order by initial, py"),
-    q("select * from recipes order by created_at desc"),
-    q("select * from posts order by created_at desc limit 1000"),
-    q("select * from comments order by created_at desc limit 3000"),
+    dbSelect("ingredients", [], { order: "py" }),
+    dbSelect("recipes", [], { order: "created_at", asc: false, limit: 2000 }),
+    dbSelect("posts", [], { order: "created_at", asc: false, limit: 1000 }),
+    dbSelect("comments", [], { order: "created_at", asc: false, limit: 3000 }),
     getSettings(),
     userByToken(token)
   ]);
@@ -153,15 +198,19 @@ async function register(payload) {
   if (password.length < 6) return fail("密码至少 6 位");
   if (payload.confirm !== undefined && password !== String(payload.confirm)) return fail("两次输入的密码不一致");
 
-  const exists = await one("select id from users where phone = $1", [phone]);
+  const exists = await dbSelectOne("users", [{ col: "phone", val: phone }]);
   if (exists) return fail("这个手机号已经注册过了");
 
   const ph = hashPassword(password);
   const id = newId("u");
-  await q("insert into users (id, phone, username, nickname, salt, hash, role, intro) values ($1,$2,$3,$4,$5,$6,'user','')",
-    [id, phone, phone, nickname, ph.salt, ph.hash]);
+  await dbInsert("users", {
+    id: id, phone: phone, username: phone, nickname: nickname,
+    salt: ph.salt, hash: ph.hash, role: "user", intro: "",
+    favorites: [], post_favorites: [], my_ingredients: [],
+    created_at: new Date().toISOString()
+  });
   const newToken = await createSession(id);
-  const user = await one("select * from users where id = $1", [id]);
+  const user = await dbSelectOne("users", [{ col: "id", val: id }]);
   return ok({ token: newToken, user: publicUser(user) });
 }
 
@@ -169,8 +218,7 @@ async function login(payload) {
   const account = String(payload.account || "").trim();
   const password = String(payload.password || "");
   const isPhone = /^1[3-9]\d{9}$/.test(account);
-  const user = await one(isPhone ? "select * from users where phone = $1" : "select * from users where username = $1",
-    [account]);
+  const user = await dbSelectOne("users", [{ col: isPhone ? "phone" : "username", val: account }]);
   if (!user || !checkPassword(user, password)) {
     return fail(isPhone ? "手机号或密码不正确" : "账号或密码不正确");
   }
@@ -185,23 +233,21 @@ async function changePassword(payload, token, me) {
   if (np.length < 6) return fail("新密码至少 6 位");
   if (np !== String(payload.confirmPwd || np)) return fail("两次输入的新密码不一致");
   const ph = hashPassword(np);
-  await q("update users set salt = $1, hash = $2 where id = $3", [ph.salt, ph.hash, me.id]);
+  await dbUpdate("users", me.id, { salt: ph.salt, hash: ph.hash });
   return ok({ changed: true });
 }
 
 async function updateProfile(payload, token, me) {
   if (!me) return fail("请先登录");
-  const sets = [], params = [];
-  function set(col, val) { params.push(val); sets.push(col + " = $" + params.length); }
-  if (payload.nickname !== undefined) set("nickname", String(payload.nickname).slice(0, 12));
-  if (payload.intro !== undefined) set("intro", String(payload.intro).slice(0, 100));
-  if (payload.favorites) set("favorites", JSON.stringify(payload.favorites));
-  if (payload.postFavorites) set("post_favorites", JSON.stringify(payload.postFavorites));
-  if (payload.myIngredients) set("my_ingredients", JSON.stringify(payload.myIngredients));
-  if (!sets.length) return ok({ updated: false });
-  params.push(me.id);
-  await q("update users set " + sets.join(", ") + " where id = $" + params.length, params);
-  const user = await one("select * from users where id = $1", [me.id]);
+  const patch = {};
+  if (payload.nickname !== undefined) patch.nickname = String(payload.nickname).slice(0, 12);
+  if (payload.intro !== undefined) patch.intro = String(payload.intro).slice(0, 100);
+  if (payload.favorites) patch.favorites = payload.favorites;
+  if (payload.postFavorites) patch.post_favorites = payload.postFavorites;
+  if (payload.myIngredients) patch.my_ingredients = payload.myIngredients;
+  if (!Object.keys(patch).length) return ok({ updated: false });
+  await dbUpdate("users", me.id, patch);
+  const user = await dbSelectOne("users", [{ col: "id", val: me.id }]);
   return ok({ user: publicUser(user) });
 }
 
@@ -211,8 +257,9 @@ async function toggleFavorite(payload, token, me) {
   const list = (isPost ? (me.post_favorites || []) : (me.favorites || [])).slice();
   const idx = list.indexOf(payload.id);
   if (idx >= 0) list.splice(idx, 1); else list.push(payload.id);
-  const col = isPost ? "post_favorites" : "favorites";
-  await q("update users set " + col + " = $1 where id = $2", [JSON.stringify(list), me.id]);
+  const patch = {};
+  patch[isPost ? "post_favorites" : "favorites"] = list;
+  await dbUpdate("users", me.id, patch);
   return ok({ faved: idx < 0, list: list });
 }
 
@@ -259,14 +306,19 @@ async function addPost(payload, token, me) {
   if (me.role === "admin") status = "approved";
 
   const id = newId("post");
-  await q("insert into posts (id, title, content, images, category, recipe_tags, author_id, username, nickname, status, review, reject_reason, likes, views, comments) " +
-          "values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'[]'::jsonb,0,'[]'::jsonb)",
-    [id, title, content, JSON.stringify(payload.images || []), payload.category || "闲聊",
-     JSON.stringify(payload.recipeTags || []), me.id, me.username, me.nickname,
-     status, JSON.stringify({ source: "rule", risk: rule.risk, reasons: rule.reasons }),
-     status === "rejected" ? rule.reasons.join("；") : ""]);
-  const post = await one("select * from posts where id = $1", [id]);
-  return ok({ post: rowPost(post) });
+  const doc = {
+    id: id, title: title, content: content,
+    images: payload.images || [], category: payload.category || "闲聊",
+    recipe_tags: payload.recipeTags || [],
+    author_id: me.id, username: me.username, nickname: me.nickname || me.username,
+    status: status,
+    review: { source: "rule", risk: rule.risk, reasons: rule.reasons, at: new Date().toISOString() },
+    reject_reason: status === "rejected" ? rule.reasons.join("；") : "",
+    likes: [], views: 0, comments: [],
+    created_at: new Date().toISOString()
+  };
+  await dbInsert("posts", doc);
+  return ok({ post: rowPost(doc) });
 }
 
 async function addPostComment(payload, token, me) {
@@ -274,45 +326,46 @@ async function addPostComment(payload, token, me) {
   const content = String(payload.content || "").trim();
   if (!content) return fail("回复不能为空");
   if (content.length > 500) return fail("回复最多 500 字");
-  const post = await one("select comments from posts where id = $1", [payload.postId]);
+  const post = await dbSelectOne("posts", [{ col: "id", val: payload.postId }]);
   if (!post) return fail("帖子不存在");
-  const list = post.comments || [];
+  const list = (post.comments || []).slice();
   const comment = {
     id: newId("pc"), userId: me.id, username: me.username,
     nickname: me.nickname || me.username, content: content,
     likes: [], createdAt: new Date().toISOString()
   };
   list.push(comment);
-  await q("update posts set comments = $1 where id = $2", [JSON.stringify(list), payload.postId]);
+  await dbUpdate("posts", payload.postId, { comments: list });
   return ok({ comment: comment });
 }
 
 async function togglePostLike(payload, token, me) {
   if (!me) return fail("登录后才能点赞");
-  const post = await one("select likes from posts where id = $1", [payload.postId]);
+  const post = await dbSelectOne("posts", [{ col: "id", val: payload.postId }]);
   if (!post) return fail("帖子不存在");
-  const list = post.likes || [];
+  const list = (post.likes || []).slice();
   const idx = list.indexOf(me.id);
   if (idx >= 0) list.splice(idx, 1); else list.push(me.id);
-  await q("update posts set likes = $1 where id = $2", [JSON.stringify(list), payload.postId]);
+  await dbUpdate("posts", payload.postId, { likes: list });
   return ok({ liked: idx < 0, count: list.length });
 }
 
 async function setPostStatus(payload, token, me) {
   if (!me || me.role !== "admin") return fail("只有管理员可以审核");
-  await q("update posts set status = $1, reject_reason = $2 where id = $3",
-    [payload.status,
-     payload.status === "rejected" ? String(payload.reason || "管理员判定不适合发布") : "",
-     payload.id]);
+  await dbUpdate("posts", payload.id, {
+    status: payload.status,
+    reject_reason: payload.status === "rejected" ? String(payload.reason || "管理员判定不适合发布") : "",
+    reviewed_by: me.username, reviewed_at: new Date().toISOString()
+  });
   return ok({ updated: true });
 }
 
 async function deletePost(payload, token, me) {
   if (!me) return fail("请先登录");
-  const post = await one("select author_id from posts where id = $1", [payload.id]);
+  const post = await dbSelectOne("posts", [{ col: "id", val: payload.id }]);
   if (!post) return fail("帖子不存在");
   if (me.role !== "admin" && post.author_id !== me.id) return fail("只能删除自己的帖子");
-  await q("delete from posts where id = $1", [payload.id]);
+  await dbDelete("posts", payload.id);
   return ok({ deleted: true });
 }
 
@@ -327,25 +380,38 @@ async function saveRecipe(payload, token, me) {
   if (!r.items || !r.items.length) return fail("至少添加一种材料");
   if (!r.tags || !r.tags.length) return fail("至少选一个口味标签");
   const id = r.id || newId("r");
-  await q('insert into recipes (id, name, en, type, emoji, color, glass, abv, "desc", image, video, video_name, tags, items, steps, py, initial, author_id, author, status) ' +
-          "values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) " +
-          'on conflict (id) do update set name = excluded.name, items = excluded.items, steps = excluded.steps, tags = excluded.tags, "desc" = excluded."desc"',
-    [id, r.name, r.en || "", r.type === "classic" ? "classic" : "custom", r.emoji || "🍹", r.color || "#e0a94a",
-     r.glass || "", r.abv || "", r.desc || "", r.image || "", r.video || "", r.videoName || "",
-     JSON.stringify(r.tags.slice(0, 10)), JSON.stringify(r.items), JSON.stringify(r.steps || []),
-     r.py || "", r.initial || "#", me.id, me.nickname || me.username,
-     (settings.needReview && me.role !== "admin") ? "pending" : "approved"]);
-  const recipe = await one("select * from recipes where id = $1", [id]);
+  const doc = {
+    id: id, name: String(r.name).trim(), en: r.en || "", alias: "",
+    type: r.type === "classic" ? "classic" : "custom",
+    emoji: r.emoji || "🍹", color: r.color || "#e0a94a",
+    glass: r.glass || "", abv: r.abv || "", desc: r.desc || "",
+    image: r.image || "", video: r.video || "", video_name: r.videoName || "",
+    tags: r.tags.slice(0, 10), items: r.items, steps: r.steps || [],
+    py: r.py || "", initial: r.initial || "#",
+    author_id: me.id, author: me.nickname || me.username,
+    status: (settings.needReview && me.role !== "admin") ? "pending" : "approved",
+    views: 0, created_at: new Date().toISOString()
+  };
+  const existed = await dbSelectOne("recipes", [{ col: "id", val: id }]);
+  if (existed) {
+    if (me.role !== "admin" && existed.author_id !== me.id) return fail("只能修改自己发布的配方");
+    delete doc.id; delete doc.created_at; delete doc.views; delete doc.author_id;
+    await dbUpdate("recipes", id, doc);
+  } else {
+    await dbInsert("recipes", doc);
+  }
+  const recipe = await dbSelectOne("recipes", [{ col: "id", val: id }]);
   return ok({ recipe: rowRecipe(recipe) });
 }
 
 async function deleteRecipe(payload, token, me) {
   if (!me) return fail("请先登录");
-  const rec = await one("select author_id from recipes where id = $1", [payload.id]);
+  const rec = await dbSelectOne("recipes", [{ col: "id", val: payload.id }]);
   if (!rec) return fail("配方不存在");
   if (me.role !== "admin" && rec.author_id !== me.id) return fail("只能删除自己发布的配方");
-  await q("delete from comments where target_id = $1", [payload.id]);
-  await q("delete from recipes where id = $1", [payload.id]);
+  const cs = await dbSelect("comments", [{ col: "target_id", val: payload.id }]);
+  for (const c of cs) await dbDelete("comments", c.id);
+  await dbDelete("recipes", payload.id);
   return ok({ deleted: true });
 }
 
@@ -355,31 +421,45 @@ async function addComment(payload, token, me) {
   if (!content) return fail("评论不能为空");
   if (content.length > 500) return fail("评论最多 500 字");
   const id = newId("c");
-  await q("insert into comments (id, target_type, target_id, user_id, username, nickname, content, parent_id) " +
-          "values ($1,'recipe',$2,$3,$4,$5,$6,$7)",
-    [id, payload.recipeId, me.id, me.username, me.nickname || me.username, content, payload.parentId || null]);
-  const c = await one("select * from comments where id = $1", [id]);
-  return ok({ comment: rowComment(c) });
+  const doc = {
+    id: id, target_type: "recipe", target_id: payload.recipeId,
+    user_id: me.id, username: me.username, nickname: me.nickname || me.username,
+    content: content, parent_id: payload.parentId || null,
+    likes: [], pinned: false, hidden: false, created_at: new Date().toISOString()
+  };
+  await dbInsert("comments", doc);
+  return ok({ comment: rowComment(doc) });
 }
 
 async function deleteComment(payload, token, me) {
   if (!me) return fail("请先登录");
-  const c = await one("select * from comments where id = $1", [payload.id]);
+  const c = await dbSelectOne("comments", [{ col: "id", val: payload.id }]);
   if (!c) return fail("评论不存在");
   if (me.role !== "admin" && c.user_id !== me.id) return fail("只能删除自己的评论");
-  await q("delete from comments where id = $1 or parent_id = $1", [payload.id]);
+  const replies = await dbSelect("comments", [{ col: "parent_id", val: payload.id }]);
+  for (const r of replies) await dbDelete("comments", r.id);
+  await dbDelete("comments", payload.id);
   return ok({ deleted: true });
 }
 
 async function toggleCommentLike(payload, token, me) {
   if (!me) return fail("登录后才能点赞");
-  const c = await one("select likes from comments where id = $1", [payload.id]);
+  const c = await dbSelectOne("comments", [{ col: "id", val: payload.id }]);
   if (!c) return fail("评论不存在");
-  const list = c.likes || [];
+  const list = (c.likes || []).slice();
   const idx = list.indexOf(me.id);
   if (idx >= 0) list.splice(idx, 1); else list.push(me.id);
-  await q("update comments set likes = $1 where id = $2", [JSON.stringify(list), payload.id]);
+  await dbUpdate("comments", payload.id, { likes: list });
   return ok({ liked: idx < 0, count: list.length });
+}
+
+async function setCommentFlags(payload, token, me) {
+  if (!me || me.role !== "admin") return fail("只有管理员可以操作");
+  const patch = {};
+  if (typeof payload.pinned === "boolean") patch.pinned = payload.pinned;
+  if (typeof payload.hidden === "boolean") patch.hidden = payload.hidden;
+  if (Object.keys(patch).length) await dbUpdate("comments", payload.id, patch);
+  return ok({ updated: true });
 }
 
 async function addReport(payload, token, me) {
@@ -389,25 +469,28 @@ async function addReport(payload, token, me) {
   const id = newId("rep");
   let recipeName = "材料库";
   if (payload.recipeId) {
-    const r = await one("select name from recipes where id = $1", [payload.recipeId]);
+    const r = await dbSelectOne("recipes", [{ col: "id", val: payload.recipeId }]);
     if (r) recipeName = r.name;
   }
-  await q("insert into reports (id, recipe_id, recipe_name, type, content, suggest, user_id, username, nickname, status) " +
-          "values ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending')",
-    [id, payload.recipeId || null, recipeName, payload.type || "其他问题", content,
-     String(payload.suggest || "").slice(0, 200), me.id, me.username, me.nickname || me.username]);
+  await dbInsert("reports", {
+    id: id, recipe_id: payload.recipeId || null, recipe_name: recipeName,
+    type: payload.type || "其他问题", content: content,
+    suggest: String(payload.suggest || "").slice(0, 200),
+    user_id: me.id, username: me.username, nickname: me.nickname || me.username,
+    status: "pending", created_at: new Date().toISOString()
+  });
   return ok({ id: id });
 }
 
 async function listReports(payload, token, me) {
   if (!me || me.role !== "admin") return fail("只有管理员可以查看勘误");
-  return ok({ reports: await q("select * from reports order by created_at desc limit 500") });
+  return ok({ reports: await dbSelect("reports", [], { order: "created_at", asc: false, limit: 500 }) });
 }
 
 async function updateReport(payload, token, me) {
   if (!me || me.role !== "admin") return fail("只有管理员可以处理勘误");
-  if (payload.remove) await q("delete from reports where id = $1", [payload.id]);
-  else if (payload.status) await q("update reports set status = $1 where id = $2", [payload.status, payload.id]);
+  if (payload.remove) await dbDelete("reports", payload.id);
+  else if (payload.status) await dbUpdate("reports", payload.id, { status: payload.status });
   return ok({ updated: true });
 }
 
@@ -415,14 +498,20 @@ async function updateSettings(payload, token, me) {
   if (!me || me.role !== "admin") return fail("只有管理员可以修改设置");
   const cur = await getSettings();
   const next = Object.assign({}, cur, payload.patch || {});
-  await q("insert into settings (id, data, updated_at) values ('site', $1, now()) " +
-          "on conflict (id) do update set data = $1, updated_at = now()", [JSON.stringify(next)]);
+  const row = await dbSelectOne("settings", [{ col: "id", val: "site" }]);
+  if (row) await dbUpdate("settings", "site", { data: next, updated_at: new Date().toISOString() });
+  else await dbInsert("settings", { id: "site", data: next, updated_at: new Date().toISOString() });
   return ok({ settings: next });
 }
 
 async function adminUsers(payload, token, me) {
   if (!me || me.role !== "admin") return fail("只有管理员可以查看用户");
-  return ok({ users: await q("select id, phone, username, nickname, role, intro, created_at from users order by created_at") });
+  const rows = await dbSelect("users", [], { order: "created_at" });
+  return ok({
+    users: rows.map(function (u) {
+      return { id: u.id, phone: u.phone, username: u.username, nickname: u.nickname, role: u.role, intro: u.intro, created_at: u.created_at };
+    })
+  });
 }
 
 /* ---------------- 入口 ---------------- */
@@ -444,6 +533,7 @@ const HANDLERS = {
   addComment: addComment,
   deleteComment: deleteComment,
   toggleCommentLike: toggleCommentLike,
+  setCommentFlags: setCommentFlags,
   addReport: addReport,
   listReports: listReports,
   updateReport: updateReport,
@@ -466,7 +556,7 @@ function parseEvent(event) {
   };
 }
 
-/** HTTP 访问服务要返回 CORS 头，否则 GitHub Pages 上的网页调不动 */
+/** HTTP 网关要返回 CORS 头，否则 GitHub Pages 上的网页调不动 */
 function httpResponse(result) {
   return {
     statusCode: 200,
@@ -483,14 +573,16 @@ function httpResponse(result) {
 exports.main = async (event) => {
   const { action, payload, token } = parseEvent(event);
   if (!action) return httpResponse(fail("缺少 action"));
+
   if (action === "ping") {
     try {
-      await q("select 1");
-      return httpResponse(ok({ db: "ok", time: Date.now() }));
+      const rows = await dbSelect("ingredients", [], { limit: 1 });
+      return httpResponse(ok({ db: "ok", ingredients: rows.length, time: Date.now() }));
     } catch (e) {
-      return httpResponse(fail("数据库连不上：" + e.message + "（检查 DATABASE_URL 环境变量）"));
+      return httpResponse(fail("数据库连不上：" + e.message));
     }
   }
+
   const handler = HANDLERS[action];
   if (!handler) return httpResponse(fail("未知的 action：" + action));
   try {
