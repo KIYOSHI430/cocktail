@@ -20,3 +20,7 @@ backup/
 
 # 提交信息用的临时文件
 _msg*.txt
+
+# 上传到静态托管的网页文件（由 index.html + assets 打包而来）
+上传到腾讯云-网页文件/
+cocktail-static.zip
