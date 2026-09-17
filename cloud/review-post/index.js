@@ -5,15 +5,16 @@
  *      API Key 存在云函数的「环境变量」里，永远不会出现在网页代码中。
  *
  * 支持的模型（都是 OpenAI 兼容接口，换环境变量即可切换）：
- *   豆包 / 火山方舟： AI_BASE_URL=https://ark.cn-beijing.volces.com/api/v3   AI_MODEL=doubao-lite-32k
- *   腾讯混元：        AI_BASE_URL=https://api.hunyuan.cloud.tencent.com/v1    AI_MODEL=hunyuan-lite
- *   智谱 GLM：        AI_BASE_URL=https://open.bigmodel.cn/api/paas/v4        AI_MODEL=glm-4-flash
- *   DeepSeek：        AI_BASE_URL=https://api.deepseek.com                   AI_MODEL=deepseek-chat
+ *   腾讯混元（默认）： AI_BASE_URL=https://api.hunyuan.cloud.tencent.com/v1  AI_MODEL=hunyuan-lite
+ *   豆包 / 火山方舟：  AI_BASE_URL=https://ark.cn-beijing.volces.com/api/v3  AI_MODEL=doubao-lite-32k
+ *   智谱 GLM：         AI_BASE_URL=https://open.bigmodel.cn/api/paas/v4      AI_MODEL=glm-4-flash
+ *   DeepSeek：         AI_BASE_URL=https://api.deepseek.com                 AI_MODEL=deepseek-chat
  *
  * 需要配置的环境变量：
  *   AI_API_KEY   必填，模型服务的 Key（各平台控制台里创建）
- *   AI_BASE_URL  选填，默认豆包
- *   AI_MODEL     选填，默认 doubao-lite-32k
+ *   AI_BASE_URL  选填，默认腾讯混元
+ *   AI_MODEL     选填，默认 hunyuan-lite
+ *   AI_SYSTEM_PROMPT  选填，想改判罚标准时用来覆盖默认规则
  *
  * 返回：{ risk: 0-100, reasons: ["..."], model: "..." }
  */
@@ -21,19 +22,23 @@
 const https = require("https");
 
 const API_KEY = process.env.AI_API_KEY || "";
-const BASE_URL = process.env.AI_BASE_URL || "https://ark.cn-beijing.volces.com/api/v3";
-const MODEL = process.env.AI_MODEL || "doubao-lite-32k";
+const BASE_URL = process.env.AI_BASE_URL || "https://api.hunyuan.cloud.tencent.com/v1";
+const MODEL = process.env.AI_MODEL || "hunyuan-lite";
 
-const SYSTEM_PROMPT = [
-  "你是中文调酒社区「鸡尾酒法典」的内容审核员。判断这条帖子能不能公开发布。",
-  "打分标准（risk 0-100，越高越该拦）：",
-  "80-100：广告引流（留微信/QQ/电话、卖货、招商代理）、违法违规、色情赌博暴力、涉及未成年人饮酒；",
-  "50-79：人身攻击辱骂、明显的无关刷屏、诈骗或虚假信息；",
-  "20-49：与调酒关系不大或质量很低（例如只有几个字、纯表情、无意义重复）；",
-  "0-19：正常交流（求推荐、问配方、分享心得、聊器材、晒作品）。",
-  "只输出一个 JSON，不要多余解释，格式：",
+const DEFAULT_RULES = [
+  "你是中文调酒社区「鸡尾酒法典」的内容审核员，只按下面 5 条规则判断，不要自己加别的标准。",
+  "【规则】",
+  "1. 广告：卖货、代购、招商、代理、微商，留微信/QQ/电话/群号，拉群、扫码、推广链接 → 风险 80-100",
+  "2. 色情：色情、擦边、低俗、约炮、援交、性暗示 → 风险 80-100",
+  "3. 暴力：打架斗殴、伤害他人、恐吓威胁、毒品枪支等违禁品 → 风险 80-100",
+  "4. 辱骂：脏话、人身攻击、地域歧视、嘲讽侮辱他人 → 风险 60-79",
+  "5. 灌水：与调酒完全无关的刷屏、无意义重复、只发几个字或纯表情 → 风险 30-49",
+  "【不算违规】正常的求助、问配方、分享心得、聊器材、晒作品、吐槽某杯酒难喝、讨论价格，都给 0-19。",
+  "只输出一个 JSON，不要任何多余文字，格式：",
   '{"risk": 数字, "reasons": ["简短中文理由", "可多条"]}'
 ].join("\n");
+
+const SYSTEM_PROMPT = process.env.AI_SYSTEM_PROMPT || DEFAULT_RULES;
 
 function callModel(title, content, category) {
   return new Promise((resolve, reject) => {

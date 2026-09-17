@@ -204,8 +204,10 @@
   function persist() {
     try {
       localStorage.setItem(KEY, JSON.stringify(state));
+      return true;
     } catch (e) {
       console.warn("写入本地数据失败（可能是浏览器隐私模式或空间不足）", e);
+      return false;
     }
   }
 
@@ -789,6 +791,7 @@
 
   var RULE_PATTERNS = [
     { re: /(微信|weixin|wechat|vx|威信|薇信|加我|私聊|私我)/i, score: 40, reason: "疑似引流（提到微信/私聊）" },
+    { re: /(加群|拉群|进群|群号|扫码|二维码)/, score: 40, reason: "疑似引流（拉群/扫码）" },
     { re: /(qq|扣扣)\s*[:：]?\s*\d{5,}/i, score: 45, reason: "疑似留下联系方式" },
     { re: /1[3-9]\d{9}/, score: 50, reason: "疑似手机号" },
     { re: /(https?:\/\/|www\.)/i, score: 25, reason: "包含外部链接" },
@@ -796,7 +799,8 @@
     { re: /(赌博|博彩|彩票|冰毒|大麻|枪支|迷药)/, score: 80, reason: "涉及违法内容" },
     { re: /(色情|约炮|援交|裸聊)/, score: 80, reason: "涉及低俗内容" },
     { re: /(未成年|学生妹|灌醉)/, score: 60, reason: "涉及未成年人或不当内容" },
-    { re: /(傻[逼比]|智障|去死|滚蛋)/, score: 30, reason: "疑似侮辱性用语" }
+    { re: /(傻[逼比]|智障|去死|滚蛋)/, score: 30, reason: "疑似侮辱性用语" },
+    { re: /(垃圾人|贱人|恶心东西|有多远滚多远)/, score: 35, reason: "疑似辱骂" }
   ];
 
   /** 只做规则的本地审核，返回风险分与命中原因 */
@@ -843,7 +847,7 @@
       id: newId("post"),
       title: title,
       content: content,
-      images: Array.isArray(data.images) ? data.images.slice(0, 3) : [],
+      images: Array.isArray(data.images) ? data.images.slice(0, 6) : [],
       category: POST_CATEGORIES.indexOf(data.category) >= 0 ? data.category : "闲聊",
       authorId: me.id, username: me.username, nickname: me.nickname || me.username,
       createdAt: new Date().toISOString(),
@@ -853,7 +857,11 @@
       likes: [], views: 0, comments: []
     };
     state.posts.unshift(post);
-    persist();
+    if (!persist()) {
+      // 浏览器本地空间写满了（多图最容易触发）：回滚并告知用户
+      state.posts.shift();
+      return { ok: false, msg: "本地存储空间不足，帖子没发出去。少传两张图试试，或等接入云开发后再传大图。" };
+    }
     return { ok: true, post: post, rule: rule };
   }
 

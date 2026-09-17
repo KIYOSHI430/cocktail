@@ -19,7 +19,7 @@
   var tagFilter = { tags: [], mode: "all" };
   var deckState = { i: 0, drag: 0, picks: [], salt: "" };
   var postState = { category: "全部", sort: "new", q: "" };
-  var postDraftImage = "";
+  var postDraftImages = [];
   var matchQuery = "";
   var editingIngredientId = null;
   var authMode = "login";
@@ -329,6 +329,7 @@
     var me = Store.currentUser();
     if (!me) { toast("登录后就能发帖"); authModal("login"); return; }
     if (!Store.can("post")) { toast("管理员暂时关闭了发帖"); return; }
+    postDraftImages = [];
     openModal(
       "<h2>发帖</h2>" +
       '<form id="postForm" class="form">' +
@@ -337,23 +338,55 @@
         "</select></label>" +
         '<label class="field"><span>标题 *</span><input class="input" name="title" maxlength="40" placeholder="一句话说清楚你想聊什么"></label>' +
         '<label class="field"><span>正文 *</span><textarea class="input" name="content" rows="6" maxlength="2000" placeholder="详细说说：你手头有什么、试过什么、想解决什么问题"></textarea></label>' +
-        '<div class="row tight"><input class="input" type="file" id="postImage" accept="image/*"><span class="mute-text">可选配一张图，会自动压缩</span></div>' +
-        '<div class="img-preview small" id="postImagePreview"></div>' +
+        '<label class="field"><span>配图<em class="opt">选填，最多 6 张</em></span>' +
+          '<input class="input" type="file" id="postImages" accept="image/*" multiple></label>' +
+        '<div class="img-grid" id="postImagePreview"></div>' +
         '<p class="mute-text">提交前会自动检查一遍（广告、联系方式、违规内容会被拦或转人工审核）。</p>' +
         '<div class="form-foot"><button class="btn" type="submit">发布</button>' +
         '<button type="button" class="btn ghost" data-action="close-modal">取消</button></div>' +
       "</form>"
     );
+    renderPostImagePreview();
+  }
+
+  /** 一次可以选多张，逐张压缩后追加 */
+  function addPostImages(fileList) {
+    var files = Array.prototype.slice.call(fileList);
+    var room = 6 - postDraftImages.length;
+    if (room <= 0) { toast("最多 6 张图"); return; }
+    var queue = files.slice(0, room);
+    if (files.length > room) toast("最多 6 张图，多余的不加了");
+    var failed = 0;
+    queue.forEach(function (file) {
+      if (file.size > 8 * 1024 * 1024) { failed++; return; }
+      downscaleImage(file, 900, function (dataUrl) {
+        if (dataUrl) { postDraftImages.push(dataUrl); renderPostImagePreview(); }
+        else { failed++; toast("有图片读取失败，换一张试试"); }
+      });
+    });
+    if (failed) toast("有 " + failed + " 张图片过大，已跳过（单张 8MB 以内）");
+  }
+
+  function renderPostImagePreview() {
+    var host = document.getElementById("postImagePreview");
+    if (!host) return;
+    host.innerHTML = postDraftImages.map(function (src, i) {
+      return '<div class="img-cell"><img src="' + src + '" alt="">' +
+        '<button type="button" class="img-del" data-action="post-img-remove" data-idx="' + i + '" title="移除">×</button></div>';
+    }).join("") +
+    (postDraftImages.length < 6
+      ? '<label class="img-add"><input type="file" id="postImagesMore" accept="image/*" multiple><span>+ 添加</span></label>'
+      : "");
   }
 
   function submitPost(form) {
     var fd = new FormData(form);
     var res = Store.addPost({
       title: fd.get("title"), content: fd.get("content"), category: fd.get("category"),
-      images: postDraftImage ? [postDraftImage] : []
+      images: postDraftImages.slice()
     });
     if (!res.ok) { toast(res.msg); return; }
-    postDraftImage = "";
+    postDraftImages = [];
     closeModal();
     if (res.post.status === "rejected") {
       toast("内容没通过审核：" + res.post.rejectReason);
@@ -378,8 +411,9 @@
     Store.addPostView(id);
     var me = Store.currentUser();
     var canMod = me && (me.role === "admin" || p.authorId === me.id);
-    var imgs = (p.images || []).map(function (src) {
-      return '<img src="' + esc(src) + '" alt="" onerror="this.classList.add(\'failed\')">';
+    var imgs = (p.images || []).map(function (src, i) {
+      return '<img src="' + esc(src) + '" alt="" data-action="post-img-view" data-src="' + esc(src) +
+        '" data-post="' + p.id + '" data-idx="' + i + '" onerror="this.classList.add(\'failed\')">';
     }).join("");
     var reasons = (p.review && p.review.reasons && p.review.reasons.length)
       ? '<p class="mute-text">审核依据：' + esc(p.review.reasons.join("；")) +
@@ -1747,12 +1781,22 @@
 
       /* 交流区 */
       case "new-post": openPostEditor(); break;
+      case "post-img-remove": {
+        postDraftImages.splice(Number(el.getAttribute("data-idx")), 1);
+        renderPostImagePreview();
+        break;
+      }
       case "open-post": go("#/post/" + id); break;
       case "post-cat": postState.category = value; renderPosts(); break;
       case "post-like": {
         var pl = Store.togglePostLike(id);
         if (!pl.ok) { toast(pl.msg); authModal("login"); return; }
         renderPostDetail(id);
+        break;
+      }
+      case "post-img-view": {
+        var bigSrc = el.getAttribute("data-src");
+        openModal('<div class="lightbox"><img src="' + esc(bigSrc) + '" alt=""><button class="btn ghost sm lightbox-close" data-action="close-modal">关闭</button></div>');
         break;
       }
       case "post-del": {
@@ -2278,15 +2322,8 @@
     } else if (t.id === "postSort") {
       postState.sort = t.value;
       refreshPostList();
-    } else if (t.id === "postImage" && t.files && t.files[0]) {
-      var pfile = t.files[0];
-      if (pfile.size > 6 * 1024 * 1024) { toast("图片太大，请选 6MB 以内的图片"); t.value = ""; return; }
-      downscaleImage(pfile, 900, function (dataUrl) {
-        if (!dataUrl) { toast("图片读取失败"); return; }
-        postDraftImage = dataUrl;
-        var pv = document.getElementById("postImagePreview");
-        if (pv) pv.innerHTML = '<img src="' + dataUrl + '" alt="">';
-      });
+    } else if ((t.id === "postImages" || t.id === "postImagesMore") && t.files && t.files.length) {
+      addPostImages(t.files);
     } else if (t.id === "imgFile" && t.files && t.files[0]) {
       var file = t.files[0];
       if (file.size > 6 * 1024 * 1024) { toast("图片太大，请选 6MB 以内的图片"); t.value = ""; return; }
