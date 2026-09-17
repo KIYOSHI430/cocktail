@@ -153,7 +153,10 @@
     // 手机端抽屉菜单（顶栏在窄屏会把导航收进这里）
     var drawerNav = document.getElementById("drawerNav");
     var drawerUser = document.getElementById("drawerUser");
-    if (drawerNav) {
+    // 只在「路由或登录状态变了」时才重建抽屉，避免每次打开菜单都做一遍 DOM 操作（会卡）
+    var drawerSig = currentRoute().name + "|" + (me ? me.id + "|" + me.role + "|" + (me.nickname || "") : "guest");
+    if (drawerNav && drawerNav.__sig !== drawerSig) {
+      drawerNav.__sig = drawerSig;
       var items = [
         ["home", "#/home", "首页", "每日推荐"],
         ["recipes", "#/recipes", "配方库", "全部酒谱"],
@@ -170,7 +173,8 @@
           '<span class="di">' + ("0" + (idx + 1)).slice(-2) + '</span><span class="dt">' + esc(it[2]) + "<em>" + esc(it[3]) + "</em></span></a>";
       }).join("");
     }
-    if (drawerUser) {
+    if (drawerUser && drawerUser.__sig !== drawerSig) {
+      drawerUser.__sig = drawerSig;
       drawerUser.innerHTML = me
         ? '<div class="du-info"><b>' + esc(me.nickname || me.username) + "</b>" +
           '<span class="mute-text">' + Store.roleLabel() + "</span></div>" +
@@ -444,17 +448,22 @@
     cards.forEach(function (card, i) {
       var o = offs[i];
       var abs = Math.abs(o);
-      var hidden = abs > 2;
-      var dx = (o === 0 ? deckState.drag : 0);
+      // 视觉上只有三档位置：-1（左后）/ 0（当前）/ +1（右后）。
+      // 更远的卡直接「瞬移」到左右两侧并隐藏，避免它横穿屏幕造成的闪烁。
+      var pos = Math.max(-1, Math.min(1, o));
+      var hidden = abs > 1;
+      var dx = (pos === 0 ? deckState.drag : 0);
+      var changingSide = hidden !== card.__hidden;
+      card.__hidden = hidden;
+      if (changingSide) card.style.transition = hidden ? "none" : "";
+      card.style.visibility = hidden ? "hidden" : "visible";
       card.style.transform =
-        "translateX(calc(" + (o * 7) + "% + " + dx + "px)) " +
-        "translateY(" + (Math.min(abs, 2) * 1.8).toFixed(2) + "%) " +
-        "scale(" + (1 - Math.min(abs, 2) * 0.055).toFixed(3) + ") " +
-        "rotate(" + (o * 1.1 + dx / 70).toFixed(2) + "deg)";
-      card.style.opacity = hidden ? "0" : String(Math.max(0.12, 1 - abs * 0.42).toFixed(3));
+        "translate3d(calc(" + (pos * 7) + "% + " + Math.round(dx) + "px), " + (Math.abs(pos) * 1.8).toFixed(2) + "%, 0) " +
+        "scale(" + (1 - Math.abs(pos) * 0.055).toFixed(3) + ") " +
+        "rotate(" + (pos * 1.1 + dx / 70).toFixed(2) + "deg)";
       card.style.zIndex = String(20 - abs);
-      card.style.pointerEvents = (o === 0 ? "auto" : "none");
-      card.classList.toggle("is-front", o === 0);
+      card.style.pointerEvents = (pos === 0 ? "auto" : "none");
+      card.classList.toggle("is-front", pos === 0);
     });
     var dots = document.getElementById("deckDots");
     if (dots) {
@@ -490,11 +499,18 @@
     deck.addEventListener("pointermove", function (e) {
       if (!dragging) return;
       deckState.drag = e.clientX - startX;
-      applyDeck();
+      // 用 rAF 限流：不管指针事件多密，一帧最多重排一次
+      if (!deckState.raf) {
+        deckState.raf = requestAnimationFrame(function () {
+          deckState.raf = 0;
+          applyDeck();
+        });
+      }
     });
     function finish() {
       if (!dragging) return;
       dragging = false;
+      if (deckState.raf) { cancelAnimationFrame(deckState.raf); deckState.raf = 0; }
       deck.classList.remove("dragging");
       var d = deckState.drag;
       deckState.drag = 0;

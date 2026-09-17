@@ -103,6 +103,7 @@ em { font-style: normal; color: var(--text-2); font-size: .8em; font-weight: 400
 .drawer-mask {
   position: absolute; inset: 0; background: rgba(0, 0, 0, .45);
   opacity: 0; transition: opacity .2s ease;
+  will-change: opacity;
 }
 .drawer-panel {
   position: absolute; top: 0; left: 0; right: 0;
@@ -111,6 +112,7 @@ em { font-style: normal; color: var(--text-2); font-size: .8em; font-weight: 400
   padding: 74px 16px 18px; box-shadow: var(--shadow);
   transform: translateY(-101%); transition: transform .24s ease;
   max-height: 86vh; overflow: auto;
+  will-change: transform;
 }
 .drawer.open { pointer-events: auto; }
 .drawer.open .drawer-mask { opacity: 1; }
@@ -192,15 +194,19 @@ textarea.input { resize: vertical; }
 .deck-card {
   position: absolute; inset: 0; border-radius: 18px; overflow: hidden;
   border: 1px solid var(--line); box-shadow: 0 26px 70px rgba(0, 0, 0, .6);
-  transform-origin: center center; will-change: transform, opacity;
+  transform-origin: center center;
+  backface-visibility: hidden;              /* 防止变换时闪一下就重绘 */
   background: linear-gradient(160deg, #1a1712, #131110);
   display: grid; grid-template-columns: minmax(280px, 46%) 1fr;
 }
+/* 只有最前面那张需要单独提升图层；全部提升会吃掉大量显存，手机就会卡 */
+.deck-card.is-front { will-change: transform; }
 /* 首帧直接摆好位置（不加过渡），之后的切换才有动效 */
 .deck.ready .deck-card {
   transition: transform .58s cubic-bezier(.22, .75, .28, 1), opacity .42s ease, box-shadow .3s ease;
 }
 .deck.dragging .deck-card { transition: none; }
+.deck.dragging .deck-card.is-front { box-shadow: 0 14px 34px rgba(0, 0, 0, .5); }
 .deck-card.is-front { box-shadow: 0 34px 90px rgba(0, 0, 0, .72); }
 .deck-card:not(.is-front) .deck-body { opacity: 0; }
 .deck.ready .deck-card .deck-body { transition: opacity .3s ease; }
@@ -860,6 +866,7 @@ footer {
 #view > *:nth-child(n+5) { animation-delay: .2s; }
 
 .grid .card { animation: cardIn .4s cubic-bezier(.22, .75, .28, 1) both; }
+.grid .card:nth-child(n+9) { animation: none; }
 .grid .card:nth-child(2) { animation-delay: .03s; }
 .grid .card:nth-child(3) { animation-delay: .06s; }
 .grid .card:nth-child(4) { animation-delay: .09s; }
@@ -909,6 +916,8 @@ footer {
 
 @media (max-width: 820px) {
   .topbar { padding: 10px 14px; gap: 10px; flex-wrap: nowrap; }
+  /* 手机上去掉毛玻璃：它要在每一帧重新采样背景，是菜单卡顿的主要来源 */
+  .topbar { backdrop-filter: none; background: rgba(12, 11, 10, .97); }
   .nav, .user-box { display: none; }
   .brand-logo { width: 34px; height: 34px; font-size: 17px; border-radius: 9px; }
   .brand-text { font-size: 16px; letter-spacing: .1em; }
