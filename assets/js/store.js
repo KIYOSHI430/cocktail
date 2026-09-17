@@ -970,6 +970,64 @@
     return list[Math.floor(Math.random() * list.length)];
   }
 
+  /* ================= 每日推荐 ================= */
+
+  function hashStr(str) {
+    var h = 2166136261;
+    for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+
+  /** 可复现的伪随机数（同一天抽出来的一定一样） */
+  function seededRandom(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function dayKey(offset) {
+    var d = new Date();
+    if (offset) d.setDate(d.getDate() + offset);
+    return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  }
+
+  /** 主页上那句日期，例如 2026年9月17日 · 星期四 */
+  function todayLabel() {
+    var d = new Date();
+    var week = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"][d.getDay()];
+    return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日 · " + week;
+  }
+
+  /**
+   * 每日推荐：同一天永远是这几杯，第二天自动换一批。
+   * salt 传不同的值可以拿到另一批（主页的「换一批」用它）。
+   * 挑选时会尽量避开口味重复的（标签重合 3 个以上就跳过）。
+   */
+  function dailyPicks(count, salt) {
+    count = count || 4;
+    var rnd = seededRandom(hashStr(dayKey(0) + "|" + (salt || "main")));
+    var pool = visibleRecipes().filter(function (r) { return r.status === "approved"; }).slice();
+    for (var i = pool.length - 1; i > 0; i--) {
+      var j = Math.floor(rnd() * (i + 1));
+      var t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+    }
+    var picked = [], used = {}, rest = [];
+    pool.forEach(function (r) {
+      if (picked.length >= count) { rest.push(r); return; }
+      var overlap = (r.tags || []).filter(function (t) { return used[t]; }).length;
+      if (picked.length && overlap >= 3) { rest.push(r); return; }
+      picked.push(r);
+      (r.tags || []).forEach(function (t) { used[t] = true; });
+    });
+    var k = 0;
+    while (picked.length < count && k < rest.length) picked.push(rest[k++]);
+    return picked;
+  }
+
   /** 本地存储占用情况（用户上传的图片会占空间，后台可以看这个数字） */
   function storageInfo() {
     var raw = "";
@@ -1110,6 +1168,8 @@
     allTags: allTags,
     tagCounts: tagCounts,
     randomRecipe: randomRecipe,
+    dailyPicks: dailyPicks,
+    todayLabel: todayLabel,
     storageInfo: storageInfo,
 
     // 勘误

@@ -16,6 +16,7 @@
   var draftTags = [];
   var modalTags = [];
   var tagFilter = { tags: [], mode: "all" };
+  var deckState = { i: 0, drag: 0, picks: [], salt: "" };
   var matchQuery = "";
   var editingIngredientId = null;
   var authMode = "login";
@@ -107,6 +108,7 @@
     toggleMenu(false);
     switch (r.name) {
       case "recipe": renderRecipeDetail(r.params[0]); break;
+      case "home": renderHome(); break;
       case "tags": {
         if (r.params[0]) {
           var t = decodeURIComponent(r.params[0]);
@@ -119,7 +121,8 @@
       case "new": renderNew(); break;
       case "me": renderMe(); break;
       case "admin": renderAdmin(); break;
-      default: renderLibrary();
+      case "recipes": renderLibrary(); break;
+      default: renderHome();
     }
     renderHeader();
   }
@@ -147,17 +150,18 @@
     var drawerUser = document.getElementById("drawerUser");
     if (drawerNav) {
       var items = [
-        ["recipes", "#/recipes", "🍸", "配方库", "全部酒谱"],
-        ["tags", "#/tags", "🎯", "想喝啥", "按口味点单"],
-        ["match", "#/match", "🧊", "我有啥", "看材料配酒"],
-        ["new", "#/new", "➕", "添加配方", "分享你的特调"],
-        ["me", "#/me", "👤", "我的", "收藏与资料"]
+        ["home", "#/home", "首页", "每日推荐"],
+        ["recipes", "#/recipes", "配方库", "全部酒谱"],
+        ["tags", "#/tags", "想喝啥", "按口味点单"],
+        ["match", "#/match", "我有啥", "看材料配酒"],
+        ["new", "#/new", "添加配方", "分享你的特调"],
+        ["me", "#/me", "我的", "收藏与资料"]
       ];
-      if (me && me.role === "admin") items.push(["admin", "#/admin", "⚙️", "管理后台", "材料 / 评论 / 用户"]);
+      if (me && me.role === "admin") items.push(["admin", "#/admin", "管理后台", "材料 / 评论 / 用户"]);
       var route = currentRoute().name;
-      drawerNav.innerHTML = items.map(function (it) {
+      drawerNav.innerHTML = items.map(function (it, idx) {
         return '<a href="' + it[1] + '" data-action="close-menu" class="' + (route === it[0] ? "on" : "") + '">' +
-          '<span class="di">' + it[2] + '</span><span class="dt">' + esc(it[3]) + "<em>" + esc(it[4]) + "</em></span></a>";
+          '<span class="di">' + ("0" + (idx + 1)).slice(-2) + '</span><span class="dt">' + esc(it[2]) + "<em>" + esc(it[3]) + "</em></span></a>";
       }).join("");
     }
     if (drawerUser) {
@@ -194,7 +198,7 @@
 
   function badgesFor(r, missing) {
     if (!missing) return "";
-    if (missing.length === 0) return '<span class="badge ok">✅ 现在就能调</span>';
+    if (missing.length === 0) return '<span class="badge ok">现在就能调</span>';
     if (missing.length <= 2) return '<span class="badge warn">差 ' + missing.length + " 种</span>";
     return '<span class="badge mute">差 ' + missing.length + " 种</span>";
   }
@@ -248,6 +252,170 @@
 
   /* ---------------- 视图一：配方库 ---------------- */
 
+  /* ---------------- 视图零：主页 · 每日推荐 ---------------- */
+
+  function deckOffsets(total) {
+    var out = [];
+    for (var i = 0; i < total; i++) {
+      var o = i - deckState.i;
+      if (o > total / 2) o -= total;
+      if (o < -total / 2) o += total;
+      out.push(o);
+    }
+    return out;
+  }
+
+  function applyDeck() {
+    var deck = document.getElementById("deck");
+    if (!deck) return;
+    var cards = Array.prototype.slice.call(deck.querySelectorAll(".deck-card"));
+    var total = cards.length;
+    if (!total) return;
+    var offs = deckOffsets(total);
+    cards.forEach(function (card, i) {
+      var o = offs[i];
+      var abs = Math.abs(o);
+      var hidden = abs > 2;
+      var dx = (o === 0 ? deckState.drag : 0);
+      card.style.transform =
+        "translateX(calc(" + (o * 7) + "% + " + dx + "px)) " +
+        "translateY(" + (Math.min(abs, 2) * 1.8).toFixed(2) + "%) " +
+        "scale(" + (1 - Math.min(abs, 2) * 0.055).toFixed(3) + ") " +
+        "rotate(" + (o * 1.1 + dx / 70).toFixed(2) + "deg)";
+      card.style.opacity = hidden ? "0" : String(Math.max(0.12, 1 - abs * 0.42).toFixed(3));
+      card.style.zIndex = String(20 - abs);
+      card.style.pointerEvents = (o === 0 ? "auto" : "none");
+      card.classList.toggle("is-front", o === 0);
+    });
+    var dots = document.getElementById("deckDots");
+    if (dots) {
+      Array.prototype.slice.call(dots.children).forEach(function (d, i) {
+        d.classList.toggle("on", i === deckState.i);
+      });
+    }
+    var counter = document.getElementById("deckCounter");
+    if (counter) counter.textContent = (deckState.i + 1) + " / " + total;
+  }
+
+  function deckGo(delta) {
+    var total = (deckState.picks || []).length;
+    if (!total) return;
+    deckState.i = ((deckState.i + delta) % total + total) % total;
+    deckState.drag = 0;
+    applyDeck();
+  }
+
+  function bindDeck() {
+    var deck = document.getElementById("deck");
+    if (!deck) return;
+    var startX = 0, dragging = false;
+
+    deck.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a, button")) return;
+      dragging = true;
+      startX = e.clientX;
+      deckState.drag = 0;
+      deck.classList.add("dragging");
+      try { deck.setPointerCapture(e.pointerId); } catch (err) { /* 忽略 */ }
+    });
+    deck.addEventListener("pointermove", function (e) {
+      if (!dragging) return;
+      deckState.drag = e.clientX - startX;
+      applyDeck();
+    });
+    function finish() {
+      if (!dragging) return;
+      dragging = false;
+      deck.classList.remove("dragging");
+      var d = deckState.drag;
+      deckState.drag = 0;
+      if (Math.abs(d) > 55) deckGo(d < 0 ? 1 : -1);
+      else applyDeck();
+    }
+    deck.addEventListener("pointerup", finish);
+    deck.addEventListener("pointercancel", finish);
+    deck.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowLeft") { deckGo(-1); }
+      else if (e.key === "ArrowRight") { deckGo(1); }
+    });
+  }
+
+  function deckCardHTML(r, idx, total) {
+    var img = r.imageThumb
+      ? '<img class="deck-img" src="' + esc(r.imageThumb) + '" alt="' + esc(r.name) + '" ' +
+        'onload="this.classList.add(\'loaded\')" onerror="this.classList.add(\'failed\')">'
+      : "";
+    var tags = (r.tags || []).slice(0, 4).join(" · ");
+    return '<article class="deck-card" style="' + grad(r.color) + '">' +
+      img +
+      '<div class="deck-scrim"></div>' +
+      (r.imageThumb ? "" : '<span class="deck-emoji">' + esc(r.emoji || "🍹") + "</span>") +
+      '<div class="deck-body">' +
+        '<span class="kicker">第 ' + (idx + 1) + " 杯 · " + typeLabel(r.type) + "</span>" +
+        "<h2>" + esc(r.name) + (r.en ? "<em>" + esc(r.en) + "</em>" : "") + "</h2>" +
+        '<p class="deck-desc">' + esc(r.desc || "") + "</p>" +
+        (tags ? '<div class="deck-tags">' + esc(tags) + "</div>" : "") +
+        '<div class="deck-cta">' +
+          '<a class="btn" href="#/recipe/' + r.id + '">查看配方</a>' +
+          '<span class="deck-sub">' + r.ingredients.length + " 种材料" + (r.glass ? " · " + esc(r.glass) : "") + "</span>" +
+        "</div>" +
+      "</div>" +
+    "</article>";
+  }
+
+  function renderHome() {
+    if (!deckState.picks || !deckState.picks.length) {
+      deckState.picks = Store.dailyPicks(4, deckState.salt);
+      deckState.i = 0;
+    }
+    var picks = deckState.picks;
+    var all = Store.visibleRecipes().filter(function (r) { return r.status === "approved"; });
+
+    view.innerHTML =
+      '<section class="home">' +
+        '<div class="home-head">' +
+          '<span class="kicker">每日推荐 · DAILY PICKS</span>' +
+          "<h1>今天为你挑了 " + picks.length + " 杯</h1>" +
+          '<p class="home-date">' + esc(Store.todayLabel()) + "　左右滑动切换</p>" +
+        "</div>" +
+        '<div class="deck" id="deck" tabindex="0">' +
+          picks.map(function (r, i) { return deckCardHTML(r, i, picks.length); }).join("") +
+        "</div>" +
+        '<div class="deck-bar">' +
+          '<button class="deck-arrow" data-action="deck-prev" aria-label="上一杯">←</button>' +
+          '<div class="deck-dots" id="deckDots">' + picks.map(function (r, i) {
+            return '<span data-action="deck-dot" data-value="' + i + '"></span>';
+          }).join("") + "</div>" +
+          '<span class="deck-counter" id="deckCounter"></span>' +
+          '<button class="deck-arrow" data-action="deck-next" aria-label="下一杯">→</button>' +
+          '<button class="link-btn deck-shuffle" data-action="deck-shuffle">换一批（仅本次）</button>' +
+        "</div>" +
+      "</section>" +
+
+      '<section class="home-actions">' +
+        '<a class="qa" href="#/match"><b>按材料找酒</b><span>勾一勾冰箱里有什么，看你今晚能调哪几杯</span></a>' +
+        '<a class="qa" href="#/tags"><b>按口味找酒</b><span>甜 · 酸 · 苦 · 气泡 · 长饮短饮 · 无酒精</span></a>' +
+        '<a class="qa" href="#/recipes"><b>全部配方</b><span>' + all.length + " 款经典与特调，含材料、做法与教学视频</span></a>" +
+      "</section>" +
+
+      '<section class="home-foot">' +
+        '<span class="kicker">酒库现状</span>' +
+        '<div class="home-stats">' +
+          statBox(all.length, "款配方") +
+          statBox(Store.listIngredients().length, "种材料") +
+          statBox(all.filter(function (r) { return r.type === "classic"; }).length, "款经典") +
+          statBox(all.filter(function (r) { return r.type === "custom"; }).length, "款特调") +
+        "</div>" +
+      "</section>";
+
+    applyDeck();
+    bindDeck();
+    requestAnimationFrame(function () {
+      var d = document.getElementById("deck");
+      if (d) d.classList.add("ready");
+    });
+  }
+
   function libResults() {
     return Store.searchRecipes({
       q: libFilter.q, type: libFilter.type, base: libFilter.base, abv: libFilter.abv,
@@ -263,8 +431,8 @@
     view.innerHTML =
       '<section class="hero">' +
         '<div class="hero-text"><h1>今晚喝什么？</h1><p>' + esc(Store.getSettings().slogan || "") + "</p>" +
-        '<div class="hero-actions"><button class="btn" data-action="random">🎲 随便来一杯</button>' +
-        '<a class="btn ghost" href="#/match">🧊 按我的材料找酒</a></div></div>' +
+        '<div class="hero-actions"><button class="btn" data-action="random">随便来一杯</button>' +
+        '<a class="btn ghost" href="#/match">按我的材料找酒</a></div></div>' +
         '<div class="hero-stats">' +
           statBox(all.length, "款配方") +
           statBox(Store.listIngredients().length, "种材料") +
@@ -279,7 +447,7 @@
           chipButton("lib-type", "classic", "经典鸡尾酒", libFilter.type) +
           chipButton("lib-type", "custom", "特调", libFilter.type) +
           '<button class="chip ' + (libFilter.fav ? "on" : "") + '" data-action="lib-fav">★ 我的收藏</button>' +
-          '<button class="chip ' + (libFilter.onlyMakeable ? "on" : "") + '" data-action="lib-makeable">🧊 只用我有的材料</button>' +
+          '<button class="chip ' + (libFilter.onlyMakeable ? "on" : "") + '" data-action="lib-makeable">只用我有的材料</button>' +
         "</div>" +
         '<div class="toolbar-right">' +
           '<select id="libBase" class="input select" title="按基酒筛选">' +
@@ -368,7 +536,7 @@
         '<div class="detail-hero" style="' + grad(r.color) + '">' +
           (r.image ? '<img class="hero-img" src="' + esc(r.image) + '" alt="' + esc(r.name) + '" onload="this.classList.add(\'loaded\')" onerror="this.classList.add(\'failed\')">' : "") +
           '<span>' + esc(r.emoji || "🍹") + "</span>" +
-          (me && me.role === "admin" ? '<button class="btn ghost sm hero-change" data-action="set-image" data-id="' + r.id + '">🖼 图片 / 标签</button>' : "") +
+          (me && me.role === "admin" ? '<button class="btn ghost sm hero-change" data-action="set-image" data-id="' + r.id + '">编辑图片与标签</button>' : "") +
         "</div>" +
         '<div class="detail-main">' +
           "<h1>" + esc(r.name) + (r.en ? ' <em>' + esc(r.en) + "</em>" : "") + "</h1>" +
@@ -378,7 +546,7 @@
             (r.abv ? '<span class="pill">酒感：' + esc(r.abv) + "</span>" : "") +
             '<span class="pill">' + esc(r.author || "官方") + " 发布</span>" +
             '<span class="pill">' + (r.views || 0) + " 次查看</span>" +
-            '<span class="pill">💬 ' + Store.countComments(r.id) + " 条评论</span>" +
+            '<span class="pill">评论 ' + Store.countComments(r.id) + "</span>" +
             (r.status !== "approved" ? '<span class="pill warn-pill">' + (r.status === "pending" ? "待审核" : "已下架") + "</span>" : "") +
           "</div>" +
           '<p class="lead">' + esc(r.desc || "") + "</p>" +
@@ -389,8 +557,8 @@
             : "") +
           '<div class="detail-actions">' +
             '<button class="btn ' + (Store.isFavorite(r.id) ? "" : "ghost") + '" data-action="toggle-fav" data-id="' + r.id + '">' + (Store.isFavorite(r.id) ? "★ 已收藏" : "☆ 收藏") + "</button>" +
-            (Store.can("suggestVideo") ? '<button class="btn ghost" data-action="add-video" data-id="' + r.id + '">🎬 推荐 / 修改视频</button>' : "") +
-            '<button class="btn ghost" data-action="report" data-id="' + r.id + '">⚠️ 勘误</button>' +
+            (Store.can("suggestVideo") ? '<button class="btn ghost" data-action="add-video" data-id="' + r.id + '">推荐视频</button>' : "") +
+            '<button class="btn ghost" data-action="report" data-id="' + r.id + '">勘误</button>' +
             (canDelete ? '<button class="btn ghost danger" data-action="delete-recipe" data-id="' + r.id + '">删除</button>' : "") +
           "</div>" +
           '<h2>需要的材料</h2><ul class="ing-list">' + ingHTML + "</ul>" +
@@ -445,7 +613,7 @@
     var me = Store.currentUser();
     var isAdmin = me && me.role === "admin";
     var actions =
-      '<button class="c-op' + (c.liked ? " on" : "") + '" data-action="comment-like" data-id="' + c.id + '">👍 ' + c.likeCount + "</button>" +
+      '<button class="c-op' + (c.liked ? " on" : "") + '" data-action="comment-like" data-id="' + c.id + '">赞 ' + c.likeCount + "</button>" +
       (depth === 0 && me ? '<button class="c-op" data-action="comment-reply" data-id="' + c.id + '">回复</button>' : "") +
       ((c.mine || isAdmin) ? '<button class="c-op danger" data-action="comment-delete" data-id="' + c.id + '">删除</button>' : "") +
       (isAdmin ? '<button class="c-op" data-action="comment-pin" data-id="' + c.id + '">' + (c.pinned ? "取消置顶" : "置顶") + "</button>" : "") +
@@ -481,7 +649,7 @@
     if (!host) return;
     var list = Store.listComments(commentState.recipeId, { sort: commentState.sort });
     if (!list.length) {
-      host.innerHTML = '<div class="empty sm">还没有人评论，来说说你的感受吧 🍸</div>';
+      host.innerHTML = '<div class="empty sm">还没有人评论，来说说你的感受吧</div>';
       return;
     }
     var size = Store.getSettings().commentPageSize || 10;
@@ -516,7 +684,7 @@
     var custom = selected.filter(function (t) { return known.indexOf(t) < 0; });
 
     var groupsHTML = groups.map(function (g) {
-      return '<div class="tag-row"><span class="tag-row-name">' + esc(g.emoji || "") + " " + esc(g.name) + "</span>" +
+      return '<div class="tag-row"><span class="tag-row-name"><b>' + esc(g.name) + "</b><em>" + esc(g.en || "") + "</em></span>" +
         '<div class="tag-chips">' + g.tags.map(function (t) {
           var on = selected.indexOf(t) >= 0;
           return '<button type="button" class="tag-chip ' + (on ? "on" : "") + '" data-action="toggle-tag" data-scope="' + scope + '" data-value="' + esc(t) + '">' +
@@ -525,7 +693,7 @@
     }).join("");
 
     var customHTML = custom.length
-      ? '<div class="tag-row"><span class="tag-row-name">✏️ 自定义</span><div class="tag-chips">' +
+      ? '<div class="tag-row"><span class="tag-row-name"><b>自定义</b><em>CUSTOM</em></span><div class="tag-chips">' +
         custom.map(function (t) {
           return '<button type="button" class="tag-chip on" data-action="toggle-tag" data-scope="' + scope + '" data-value="' + esc(t) + '">' + esc(t) + "</button>";
         }).join("") + "</div></div>"
@@ -564,7 +732,7 @@
       "</section>" +
       '<section class="panel">' +
         '<div class="panel-head"><h2>符合条件</h2><span class="mute-text" id="tagCount"></span>' +
-          '<button class="btn" data-action="tag-random" style="margin-left:auto">🎲 随机来一杯</button>' +
+          '<button class="btn" data-action="tag-random" style="margin-left:auto">随机一杯</button>' +
         "</div>" +
         '<div id="tagResults"></div>' +
       "</section>";
@@ -587,7 +755,7 @@
   /** 给「随机一杯」用的结果弹窗 */
   function showRandomModal(r, title) {
     openModal(
-      "<h2>" + esc(title || "今晚就喝它 👇") + "</h2>" +
+      "<h2>" + esc(title || "今晚就喝它") + "</h2>" +
       '<div class="detail-hero small" style="' + grad(r.color) + '">' +
         (r.imageThumb ? '<img class="hero-img" src="' + esc(r.imageThumb) + '" alt="" onerror="this.classList.add(\'failed\')">' : "") +
         '<span>' + esc(r.emoji || "🍹") + "</span>" +
@@ -739,7 +907,7 @@
     var count = document.getElementById("matchCount");
     var restock = document.getElementById("restockWrap");
     if (!selected.length) {
-      wrap.innerHTML = '<div class="empty">先在左边勾几种你有的材料吧 👈<br><span class="mute-text">勾选后这里会自动列出能调的酒</span></div>';
+      wrap.innerHTML = '<div class="empty">先在左边勾几种你有的材料<br><span class="mute-text">勾选后这里会自动列出能调的酒</span></div>';
       if (count) count.textContent = "已选 0 种材料";
       if (restock) restock.innerHTML = "";
       return;
@@ -750,7 +918,7 @@
     if (restock) {
       var sug = Store.suggestRestock(selected, 5);
       restock.innerHTML = sug.length
-        ? '<div class="restock"><h3>🛒 补这些最划算</h3><p class="hint">按「补上之后能多调几款酒」排序：</p>' +
+        ? '<div class="restock"><h3>补货建议</h3><p class="hint">按「补上之后能多调几款酒」排序</p>' +
           sug.map(function (s) {
             return '<div class="restock-row"><span class="e">' + esc((Store.getIngredient(s.id) || {}).emoji || "🍹") + "</span>" +
               "<b>" + esc(s.name) + '</b><span class="mute-text">+' + s.total + " 款可调" +
@@ -769,10 +937,10 @@
     }
 
     var html =
-      block("✅ 现在就能调", b.ready, "材料齐了，直接开做！") +
-      block("🍋 差 1 种材料", b.miss1, "差一点点，看看上面的补货推荐") +
-      block("🍊 差 2 种材料", b.miss2) +
-      block("🧺 差 3 种材料", b.miss3);
+      block("现在就能调", b.ready, "材料齐了，直接开做") +
+      block("差 1 种材料", b.miss1, "差一点点，看看上面的补货建议") +
+      block("差 2 种材料", b.miss2) +
+      block("差 3 种材料", b.miss3);
 
     wrap.innerHTML = html || '<div class="empty">目前这些材料还调不出酒，再勾几种基酒或果汁试试。</div>';
   }
@@ -1129,7 +1297,7 @@
     return "<h3>勘误概览</h3>" +
       '<div class="stats-row">' + statBox(s.pending, "待处理") + statBox(s.done, "已处理") +
       statBox(s.ignored, "已忽略") + statBox(s.today, "今日新增") + statBox(s.total, "累计") + "</div>" +
-      '<p class="mute-text">用户在配方页点「⚠️ 勘误」提交的问题都会汇总到这里。核对完配方记得改一下，再点「标记已处理」。</p>' +
+      '<p class="mute-text">用户在配方页点「勘误」提交的问题都会汇总到这里。核对完配方记得改一下，再点「标记已处理」。</p>' +
       '<div class="row tight">' +
         '<div class="chips">' + chips.map(function (c) {
           return '<button class="chip ' + (reportFilter.status === c[0] ? "on" : "") +
@@ -1300,6 +1468,17 @@
       case "open-register": authModal("register"); break;
       case "toggle-menu": toggleMenu(); break;
       case "close-menu": toggleMenu(false); break;
+      case "deck-prev": deckGo(-1); break;
+      case "deck-next": deckGo(1); break;
+      case "deck-dot": deckState.i = Number(value) || 0; deckState.drag = 0; applyDeck(); break;
+      case "deck-shuffle": {
+        deckState.salt = "s" + Date.now();
+        deckState.picks = Store.dailyPicks(4, deckState.salt);
+        deckState.i = 0;
+        renderHome();
+        toast("换了一批，明天会自动回到每日推荐");
+        break;
+      }
       case "switch-auth": authModal(value); break;
       case "close-modal": closeModal(); break;
       case "logout": Store.logout(); toast("已退出登录"); render(); break;
@@ -1341,7 +1520,7 @@
       case "tag-random": {
         var picked = Store.randomRecipe(tagFilter.tags, tagFilter.mode);
         if (!picked) { toast("没有符合这些标签的酒，换个标签试试"); break; }
-        showRandomModal(picked, "就喝这杯 👇");
+        showRandomModal(picked, "就喝这杯");
         break;
       }
       case "lib-fav": libFilter.fav = !libFilter.fav; renderLibrary(); break;
@@ -1785,7 +1964,7 @@
 
   /* 启动 */
   Store.init();
-  if (!location.hash) location.hash = "#/recipes";
+  if (!location.hash) location.hash = "#/home";
   render();
   window.addEventListener("keydown", function (e) {
     if (e.key === "Escape") { closeModal(); toggleMenu(false); }
