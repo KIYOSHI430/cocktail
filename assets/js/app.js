@@ -12,6 +12,9 @@
   var adminCommentQuery = "";
   var adminCommentOnlyHidden = false;
   var draft = { ingredients: [], search: "", cat: "全部" };
+  var draftTags = [];
+  var modalTags = [];
+  var tagFilter = { tags: [], mode: "all" };
   var matchQuery = "";
   var editingIngredientId = null;
   var authMode = "login";
@@ -102,6 +105,14 @@
     window.scrollTo({ top: 0 });
     switch (r.name) {
       case "recipe": renderRecipeDetail(r.params[0]); break;
+      case "tags": {
+        if (r.params[0]) {
+          var t = decodeURIComponent(r.params[0]);
+          if (tagFilter.tags.indexOf(t) < 0) tagFilter.tags = [t];
+        }
+        renderTags();
+        break;
+      }
       case "match": renderMatch(); break;
       case "new": renderNew(); break;
       case "me": renderMe(); break;
@@ -159,6 +170,9 @@
     }
     var fav = Store.isFavorite(r.id);
     var hl = terms(q || "");
+    var tags = (r.tags || []).slice(0, 3).map(function (t) {
+      return '<button class="tag-mini" data-action="open-tag" data-value="' + esc(t) + '">' + esc(t) + "</button>";
+    }).join("") + ((r.tags || []).length > 3 ? '<span class="tag-mini more">+' + (r.tags.length - 3) + "</span>" : "");
     var img = r.imageThumb
       ? '<img class="art-img" src="' + esc(r.imageThumb) + '" alt="' + esc(r.name) + '" loading="lazy" onerror="this.classList.add(\'failed\')">'
       : "";
@@ -172,6 +186,7 @@
       '<div class="card-body" data-action="open-recipe" data-id="' + r.id + '">' +
         "<h3>" + highlight(r.name, hl) + (r.en ? ' <em>' + highlight(r.en, hl) + "</em>" : "") + "</h3>" +
         '<p class="desc">' + highlight(r.desc || "", hl) + "</p>" +
+        (tags ? '<div class="card-tags">' + tags + "</div>" : "") +
         '<div class="meta">' + (badge || ('<span class="badge mute">' + r.ingredients.length + " 种材料</span>")) +
           (r.glass ? '<span class="mute-text">' + esc(r.glass) + "</span>" : "") +
           '<span class="mute-text">' + esc(r.author || "官方") + "</span>" +
@@ -313,7 +328,7 @@
         '<div class="detail-hero" style="' + grad(r.color) + '">' +
           (r.image ? '<img class="hero-img" src="' + esc(r.image) + '" alt="' + esc(r.name) + '" onerror="this.classList.add(\'failed\')">' : "") +
           '<span>' + esc(r.emoji || "🍹") + "</span>" +
-          (me && me.role === "admin" ? '<button class="btn ghost sm hero-change" data-action="set-image" data-id="' + r.id + '">🖼 换图</button>' : "") +
+          (me && me.role === "admin" ? '<button class="btn ghost sm hero-change" data-action="set-image" data-id="' + r.id + '">🖼 图片 / 标签</button>' : "") +
         "</div>" +
         '<div class="detail-main">' +
           "<h1>" + esc(r.name) + (r.en ? ' <em>' + esc(r.en) + "</em>" : "") + "</h1>" +
@@ -327,6 +342,11 @@
             (r.status !== "approved" ? '<span class="pill warn-pill">' + (r.status === "pending" ? "待审核" : "已下架") + "</span>" : "") +
           "</div>" +
           '<p class="lead">' + esc(r.desc || "") + "</p>" +
+          ((r.tags && r.tags.length)
+            ? '<div class="detail-tags">' + r.tags.map(function (t) {
+                return '<button class="tag-pill" data-action="open-tag" data-value="' + esc(t) + '">' + esc(t) + "</button>";
+              }).join("") + "</div>"
+            : "") +
           '<div class="detail-actions">' +
             '<button class="btn ' + (Store.isFavorite(r.id) ? "" : "ghost") + '" data-action="toggle-fav" data-id="' + r.id + '">' + (Store.isFavorite(r.id) ? "★ 已收藏" : "☆ 收藏") + "</button>" +
             (Store.can("suggestVideo") ? '<button class="btn ghost" data-action="add-video" data-id="' + r.id + '">🎬 推荐 / 修改视频</button>' : "") +
@@ -444,6 +464,128 @@
   }
 
   /* ---------------- 视图三：我有啥（材料匹配） ---------------- */
+
+  /* ---------------- 视图：想喝啥（按口味标签） ---------------- */
+
+  function tagPickerHTML(scope, selected) {
+    var counts = Store.tagCounts();
+    var groups = Store.tagGroups();
+    var known = [];
+    groups.forEach(function (g) { g.tags.forEach(function (t) { known.push(t); }); });
+    var custom = selected.filter(function (t) { return known.indexOf(t) < 0; });
+
+    var groupsHTML = groups.map(function (g) {
+      return '<div class="tag-row"><span class="tag-row-name">' + esc(g.emoji || "") + " " + esc(g.name) + "</span>" +
+        '<div class="tag-chips">' + g.tags.map(function (t) {
+          var on = selected.indexOf(t) >= 0;
+          return '<button type="button" class="tag-chip ' + (on ? "on" : "") + '" data-action="toggle-tag" data-scope="' + scope + '" data-value="' + esc(t) + '">' +
+            esc(t) + (counts[t] ? '<em>' + counts[t] + "</em>" : "") + "</button>";
+        }).join("") + "</div></div>";
+    }).join("");
+
+    var customHTML = custom.length
+      ? '<div class="tag-row"><span class="tag-row-name">✏️ 自定义</span><div class="tag-chips">' +
+        custom.map(function (t) {
+          return '<button type="button" class="tag-chip on" data-action="toggle-tag" data-scope="' + scope + '" data-value="' + esc(t) + '">' + esc(t) + "</button>";
+        }).join("") + "</div></div>"
+      : "";
+
+    var inputId = scope === "draft" ? "customTagInput" : "modalTagInput";
+    return '<div class="tag-selected">已选 ' + selected.length + " 个：" +
+      (selected.length
+        ? selected.map(function (t) {
+            return '<button type="button" class="tag-pill on" data-action="toggle-tag" data-scope="' + scope + '" data-value="' + esc(t) + '">' + esc(t) + " ×</button>";
+          }).join("")
+        : '<span class="mute-text">还没选，点下面的标签；也可以自己敲一个</span>') +
+      "</div>" +
+      groupsHTML + customHTML +
+      '<div class="row tight custom-tag-row">' +
+        '<input class="input narrow-w" id="' + inputId + '" placeholder="自定义标签，如「烟熏味」「家乡味」">' +
+        '<button type="button" class="btn ghost sm" data-action="add-custom-tag" data-scope="' + scope + '">加为标签</button>' +
+        '<span class="mute-text">最多 10 个标签，每个不超过 8 个字</span>' +
+      "</div>";
+  }
+
+  function renderTags() {
+    var t = tagFilter.tags;
+    view.innerHTML =
+      '<section class="page-head"><h1>想喝啥</h1><p>点几个你现在的口味（比如「酸 + 气泡 + 夏日」），下面就会只剩符合条件的酒；拿不定主意就让它随机挑一杯。</p></section>' +
+      '<section class="panel">' +
+        '<div class="panel-head">' +
+          '<div class="chips">' +
+            '<button class="chip ' + (tagFilter.mode === "all" ? "on" : "") + '" data-action="tag-mode" data-value="all">同时满足全部</button>' +
+            '<button class="chip ' + (tagFilter.mode === "any" ? "on" : "") + '" data-action="tag-mode" data-value="any">满足任一即可</button>' +
+            '<button class="chip" data-action="tag-clear">清空标签</button>' +
+          "</div>" +
+          '<span class="mute-text" id="tagHint"></span>' +
+        "</div>" +
+        '<div id="tagPickerWrap">' + tagPickerHTML("filter", t) + "</div>" +
+      "</section>" +
+      '<section class="panel">' +
+        '<div class="panel-head"><h2>符合条件</h2><span class="mute-text" id="tagCount"></span>' +
+          '<button class="btn" data-action="tag-random" style="margin-left:auto">🎲 随机来一杯</button>' +
+        "</div>" +
+        '<div id="tagResults"></div>' +
+      "</section>";
+    renderTagResults();
+  }
+
+  function renderTagResults() {
+    var host = document.getElementById("tagResults");
+    if (!host) return;
+    var list = Store.searchRecipes({ tags: tagFilter.tags, tagMode: tagFilter.mode, sort: "hot" });
+    var count = document.getElementById("tagCount");
+    var hint = document.getElementById("tagHint");
+    if (count) count.textContent = tagFilter.tags.length ? "共 " + list.length + " 款" : "还没选标签，下面是全部 " + list.length + " 款";
+    if (hint) hint.textContent = tagFilter.tags.length ? "点了" + tagFilter.tags.length + "个标签，按「" + (tagFilter.mode === "all" ? "同时满足" : "满足任一") + "」筛选" : "";
+    host.innerHTML = list.length
+      ? '<div class="grid small">' + list.map(function (r) { return recipeCard(r, r._missing, ""); }).join("") + "</div>"
+      : '<div class="empty">没有同时满足这些标签的酒。<br><span class="mute-text">试试切换到「满足任一即可」，或者去掉一个标签。</span></div>';
+  }
+
+  /** 给「随机一杯」用的结果弹窗 */
+  function showRandomModal(r, title) {
+    openModal(
+      "<h2>" + esc(title || "今晚就喝它 👇") + "</h2>" +
+      '<div class="detail-hero small" style="' + grad(r.color) + '">' +
+        (r.imageThumb ? '<img class="hero-img" src="' + esc(r.imageThumb) + '" alt="" onerror="this.classList.add(\'failed\')">' : "") +
+        '<span>' + esc(r.emoji || "🍹") + "</span>" +
+      "</div>" +
+      '<h3 class="center">' + esc(r.name) + (r.en ? " <em>" + esc(r.en) + "</em>" : "") + "</h3>" +
+      '<div class="tag-center">' + (r.tags || []).map(function (t) {
+        return '<span class="tag-pill">' + esc(t) + "</span>";
+      }).join("") + "</div>" +
+      '<p class="center">' + esc(r.desc || "") + "</p>" +
+      '<div class="form-foot center"><a class="btn" href="#/recipe/' + r.id + '" data-action="close-modal">看看怎么做</a>' +
+      '<button class="btn ghost" data-action="' + (title ? "tag-random" : "random") + '">换一杯</button></div>'
+    );
+  }
+
+  function selectedTagsFor(scope) {
+    return scope === "modal" ? modalTags : (scope === "filter" ? tagFilter.tags : draftTags);
+  }
+
+  function refreshTagPicker(scope) {
+    var wrap = document.getElementById(scope === "draft" ? "draftTagPicker" : (scope === "modal" ? "modalTagPicker" : "tagPickerWrap"));
+    if (!wrap) return;
+    if (scope === "filter") wrap.innerHTML = tagPickerHTML("filter", tagFilter.tags);
+    else wrap.innerHTML = tagPickerHTML(scope, selectedTagsFor(scope));
+  }
+
+  function addCustomTag(scope) {
+    var input = document.getElementById(scope === "draft" ? "customTagInput" : "modalTagInput");
+    if (!input) return;
+    var val = String(input.value || "").trim().replace(/^#/, "");
+    if (!val) { toast("先输入标签内容"); return; }
+    if (val.length > 8) { toast("标签最多 8 个字"); return; }
+    var arr = selectedTagsFor(scope);
+    if (arr.length >= 10) { toast("最多 10 个标签"); return; }
+    if (arr.indexOf(val) < 0) arr.push(val);
+    input.value = "";
+    if (scope === "filter") { renderTags(); }
+    else { refreshTagPicker(scope); }
+    toast("已添加标签「" + val + "」");
+  }
 
   function selectedSet() {
     var s = {};
@@ -605,6 +747,16 @@
         "</div>" +
         '<label class="field"><span>一句话介绍</span><textarea class="input" name="desc" rows="2" placeholder="这杯酒什么味道？适合什么场合？"></textarea></label>' +
 
+        '<h3 class="form-title">配方图片 <span class="mute-text">（必填，建议 4:3 或 1:1，越好看越有人点）</span></h3>' +
+        '<div class="upload-row">' +
+          '<div class="img-preview" id="draftImgPreview"><span class="mute-text">还没有图片</span></div>' +
+          '<div class="upload-tools">' +
+            '<input class="input" type="file" id="draftImgFile" accept="image/*">' +
+            '<input class="input" name="image" id="draftImgUrl" placeholder="或者粘贴一个图片链接 https://...">' +
+            '<span class="mute-text">上传的图会自动压缩到 1000px 以内；没有照片也可以先用 emoji 卡片。</span>' +
+          "</div>" +
+        "</div>" +
+
         '<h3 class="form-title">选择材料 <span class="mute-text">（点一下加入下方清单，可填用量、勾选「装饰用」）</span></h3>' +
         '<div class="picker-tools">' +
           '<input id="ingSearch" class="input search" type="search" placeholder="搜索材料：名称 / 英文名" value="' + esc(draft.search) + '">' +
@@ -619,6 +771,9 @@
 
         '<h3 class="form-title">做法步骤 <span class="mute-text">（一行一步）</span></h3>' +
         '<textarea class="input" name="steps" rows="5" placeholder="高球杯加满冰&#10;倒入金酒 30ml&#10;苏打水补满，轻搅"></textarea>' +
+
+        '<h3 class="form-title">口味标签 <span class="mute-text">（至少选 1 个，最多 8 个，也可以自己写）</span></h3>' +
+        '<div id="draftTagPicker">' + tagPickerHTML("draft", draftTags) + "</div>" +
 
         '<h3 class="form-title">教学视频（选填，也欢迎给已有配方推荐视频）</h3>' +
         '<div class="row">' +
@@ -682,15 +837,22 @@
     syncSelectedInputs();
     var fd = new FormData(form);
     var steps = String(fd.get("steps") || "").split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+    var image = String(fd.get("image") || "").trim();
+    if (!draft.ingredients.length) { toast("至少要加一种材料"); return; }
+    if (!steps.length) { toast("请把调酒步骤写一下（一行一步）"); return; }
+    if (!draftTags.length) { toast("至少选一个口味标签"); return; }
+    if (!image) { toast("请上传一张配方图片，或贴一个图片链接"); return; }
     var res = Store.addRecipe({
       name: fd.get("name"), en: fd.get("en"), type: fd.get("type"),
       emoji: fd.get("emoji") || "🍹", glass: fd.get("glass"), abv: fd.get("abv"),
       desc: fd.get("desc"), ingredients: draft.ingredients.slice(),
-      steps: steps, video: fd.get("video"), videoName: fd.get("videoName")
+      steps: steps, video: fd.get("video"), videoName: fd.get("videoName"),
+      image: image, tags: draftTags.slice()
     });
     if (!res.ok) { toast(res.msg); return; }
     toast(res.needReview ? "已提交，等待管理员审核" : "发布成功，谢谢分享！");
     draft = { ingredients: [], search: "", cat: "全部" };
+    draftTags = [];
     go("#/recipe/" + res.recipe.id);
   }
 
@@ -1005,14 +1167,7 @@
       if (!all.length) { toast("还没有配方，先去添加一个吧"); return; }
       r = all[Math.floor(Math.random() * all.length)];
     }
-    openModal(
-      "<h2>今晚就喝它 👇</h2>" +
-      '<div class="detail-hero small" style="' + grad(r.color) + '"><span>' + esc(r.emoji || "🍹") + "</span></div>" +
-      '<h3 class="center">' + esc(r.name) + (r.en ? " <em>" + esc(r.en) + "</em>" : "") + "</h3>" +
-      '<p class="center">' + esc(r.desc || "") + "</p>" +
-      '<div class="form-foot center"><a class="btn" href="#/recipe/' + r.id + '" data-action="close-modal">看看怎么做</a>' +
-      '<button class="btn ghost" data-action="random">换一杯</button></div>'
-    );
+    showRandomModal(r, "");
   }
 
   /* ---------------- 事件绑定 ---------------- */
@@ -1042,6 +1197,35 @@
 
       /* 配方库筛选 */
       case "lib-type": libFilter.type = value; renderLibrary(); break;
+
+      /* 口味标签 */
+      case "open-tag": {
+        tagFilter.tags = [value];
+        tagFilter.mode = "all";
+        go("#/tags");
+        if (currentRoute().name === "tags") renderTags();
+        break;
+      }
+      case "toggle-tag": {
+        var scope = el.getAttribute("data-scope") || "filter";
+        var arr = selectedTagsFor(scope);
+        var ti = arr.indexOf(value);
+        if (ti >= 0) arr.splice(ti, 1);
+        else if (arr.length >= 10) { toast("最多 10 个标签"); break; }
+        else arr.push(value);
+        if (scope === "filter") { renderTags(); }
+        else { refreshTagPicker(scope); }
+        break;
+      }
+      case "add-custom-tag": addCustomTag(el.getAttribute("data-scope") || "draft"); break;
+      case "tag-mode": tagFilter.mode = value; renderTags(); break;
+      case "tag-clear": tagFilter.tags = []; renderTags(); break;
+      case "tag-random": {
+        var picked = Store.randomRecipe(tagFilter.tags, tagFilter.mode);
+        if (!picked) { toast("没有符合这些标签的酒，换个标签试试"); break; }
+        showRandomModal(picked, "就喝这杯 👇");
+        break;
+      }
       case "lib-fav": libFilter.fav = !libFilter.fav; renderLibrary(); break;
       case "lib-makeable": {
         if (!Store.getMyIngredients().length) { toast("先去「我有啥」勾选材料"); go("#/match"); return; }
@@ -1168,15 +1352,18 @@
       }
       case "set-image": {
         var ri = Store.getRecipe(id);
+        modalTags = (ri && ri.tags ? ri.tags : []).slice();
         openModal(
-          "<h2>设置配方图片</h2>" +
+          "<h2>编辑图片与口味标签</h2>" +
           '<form id="recipeImageForm" class="form" data-id="' + id + '">' +
             '<div class="img-preview" id="imgPreview">' +
               (ri && ri.image ? '<img src="' + esc(ri.image) + '" alt="">' : '<span class="mute-text">暂无图片</span>') +
             "</div>" +
             '<label class="field"><span>图片链接</span><input class="input" name="url" id="imgUrl" value="' + esc(ri && ri.image ? ri.image : "") + '" placeholder="https://..."></label>' +
             '<label class="field"><span>或上传本地图片（自动压缩到 1000px 以内）</span><input class="input" type="file" id="imgFile" accept="image/*"></label>' +
-            '<p class="mute-text">建议用 4:3 或 1:1 的图片。目前图片存在浏览器本地，以后接腾讯云开发会改成传到云存储。</p>' +
+            '<h3 class="form-title">口味标签</h3>' +
+            '<div id="modalTagPicker">' + tagPickerHTML("modal", modalTags) + "</div>" +
+            '<p class="mute-text">图片目前存在浏览器本地，以后接腾讯云开发会改成传到云存储。</p>' +
             '<div class="form-foot"><button class="btn" type="submit">保存</button>' +
             '<button type="button" class="btn ghost danger" data-action="clear-image" data-id="' + id + '">清除图片</button>' +
             '<button type="button" class="btn ghost" data-action="close-modal">取消</button></div>' +
@@ -1340,8 +1527,9 @@
       var url = String(form.querySelector('[name="url"]').value || "").trim();
       var ri2 = Store.setRecipeImage(form.getAttribute("data-id"), url);
       if (!ri2.ok) { toast(ri2.msg); return; }
+      Store.updateRecipe(form.getAttribute("data-id"), { tags: modalTags.slice() });
       closeModal();
-      toast("图片已保存");
+      toast("图片与标签已保存");
       if (currentRoute().name === "admin") refreshAdmin(); else render();
       return;
     }
@@ -1376,6 +1564,9 @@
     } else if (t.id === "ingSearch") {
       draft.search = t.value;
       renderIngredientPicker();
+    } else if (t.id === "draftImgUrl") {
+      var pv = document.getElementById("draftImgPreview");
+      if (pv) pv.innerHTML = t.value.trim() ? '<img src="' + esc(t.value.trim()) + '" alt="" onerror="this.parentNode.innerHTML=\'<span class=&quot;mute-text&quot;>图片链接打不开</span>\'">' : '<span class="mute-text">还没有图片</span>';
     } else if (t.id === "cmtQ") {
       adminCommentQuery = t.value;
       var box = document.getElementById("adminCommentList");
@@ -1403,6 +1594,17 @@
         if (urlInput) urlInput.value = dataUrl;
         if (preview) preview.innerHTML = '<img src="' + dataUrl + '" alt="">';
         toast("图片已压缩，点保存生效");
+      });
+    } else if (t.id === "draftImgFile" && t.files && t.files[0]) {
+      var dfile = t.files[0];
+      if (dfile.size > 6 * 1024 * 1024) { toast("图片太大，请选 6MB 以内的图片"); t.value = ""; return; }
+      downscaleImage(dfile, 1000, function (dataUrl) {
+        if (!dataUrl) { toast("图片读取失败，换个格式试试"); return; }
+        var urlField = document.getElementById("draftImgUrl");
+        var dpv = document.getElementById("draftImgPreview");
+        if (urlField) urlField.value = dataUrl;
+        if (dpv) dpv.innerHTML = '<img src="' + dataUrl + '" alt="">';
+        toast("图片已压缩好了");
       });
     } else if (t.id === "importFile" && t.files && t.files[0]) {
       var reader = new FileReader();

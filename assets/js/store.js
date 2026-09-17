@@ -51,6 +51,8 @@
     r.videoName = r.videoName || "";
     r.ingredients = r.ingredients || [];
     r.steps = r.steps || [];
+    // 标签：老数据没有 tags 字段时，从种子表里补
+    if (!Array.isArray(r.tags)) r.tags = (window.SEED.tags || {})[r.id] || [];
     // 只在"从未设置过图片"时补演示图（管理员换过图或手动清空过的都不会被覆盖）
     if (typeof r.image === "undefined") {
       var seedImg = (window.SEED.images || {})[r.id];
@@ -317,8 +319,9 @@
       steps: data.steps || [],
       video: data.video || "",
       videoName: data.videoName || "",
-      image: "",           // 用户新发的配方默认没有图片，界面会显示 emoji 卡片，管理员可后续换图
-      imageThumb: "",
+      image: data.image || "",         // 用户上传时可以直接带图，没图就用 emoji 卡片
+      imageThumb: data.image ? thumbFor(data.image) : "",
+      tags: Array.isArray(data.tags) ? data.tags.slice(0, 8) : [],
       author: me.username,
       authorId: me.id,
       createdAt: nowISO(),
@@ -751,6 +754,18 @@
     if (options.onlyFav) list = list.filter(function (r) { return favs.indexOf(r.id) >= 0; });
     if (options.authorId) list = list.filter(function (r) { return r.authorId === options.authorId; });
 
+    // 口味标签筛选：默认「同时满足所有标签」，可选「满足任一标签」
+    if (options.tags && options.tags.length) {
+      var mode = options.tagMode === "any" ? "any" : "all";
+      list = list.filter(function (r) {
+        var rt = r.tags || [];
+        if (mode === "any") {
+          return options.tags.some(function (t) { return rt.indexOf(t) >= 0; });
+        }
+        return options.tags.every(function (t) { return rt.indexOf(t) >= 0; });
+      });
+    }
+
     if (terms.length) {
       list = list.filter(function (r) {
         var ingText = r.ingredients.map(function (x) { return ingredientName(x.id); }).join(" ");
@@ -804,6 +819,52 @@
     return Object.keys(used).map(function (id) {
       return { id: id, name: ingredientName(id), count: used[id] };
     }).sort(function (a, b) { return b.count - a.count; });
+  }
+
+  /* ================= 标签 ================= */
+
+  function tagGroups() {
+    return clone(window.SEED.tagGroups || []);
+  }
+
+  function allTags() {
+    var out = [];
+    tagGroups().forEach(function (g) { g.tags.forEach(function (t) { if (out.indexOf(t) < 0) out.push(t); }); });
+    // 用户自己敲的标签也一起纳入
+    state.recipes.forEach(function (r) {
+      (r.tags || []).forEach(function (t) { if (out.indexOf(t) < 0) out.push(t); });
+    });
+    return out;
+  }
+
+  /** 每个标签下有多少款酒（用于「想喝啥」页面的角标） */
+  function tagCounts() {
+    var counts = {};
+    visibleRecipes().forEach(function (r) {
+      if (r.status !== "approved") return;
+      (r.tags || []).forEach(function (t) { counts[t] = (counts[t] || 0) + 1; });
+    });
+    return counts;
+  }
+
+  /** 根据标签随机推荐一杯（没选标签就从全部里抽） */
+  function randomRecipe(tags, tagMode) {
+    var list = searchRecipes({ tags: tags || [], tagMode: tagMode || "all" });
+    if (!list.length) return null;
+    return list[Math.floor(Math.random() * list.length)];
+  }
+
+  /** 本地存储占用情况（用户上传的图片会占空间，后台可以看这个数字） */
+  function storageInfo() {
+    var raw = "";
+    try { raw = localStorage.getItem(KEY) || ""; } catch (e) { raw = ""; }
+    var bytes = raw.length;
+    return {
+      bytes: bytes,
+      kb: Math.round(bytes / 1024),
+      mb: Math.round(bytes / 1024 / 1024 * 10) / 10,
+      percent: Math.min(100, Math.round(bytes / (5 * 1024 * 1024) * 100))
+    };
   }
 
   /** 补货推荐：再买哪几种材料，能解锁最多新酒 */
@@ -926,6 +987,13 @@
     searchRecipes: searchRecipes,
     searchIngredients: searchIngredients,
     baseSpirits: baseSpirits,
+
+    // 标签
+    tagGroups: tagGroups,
+    allTags: allTags,
+    tagCounts: tagCounts,
+    randomRecipe: randomRecipe,
+    storageInfo: storageInfo,
 
     // 设置与数据
     getSettings: getSettings,
