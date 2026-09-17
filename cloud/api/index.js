@@ -210,6 +210,17 @@ async function bootstrap(token) {
     getSettings(),
     userByToken(token)
   ]);
+  // 管理员登录时，顺便把用户列表也带上（后台用户管理要用）
+  let users = [];
+  if (user && user.role === "admin") {
+    const rows = await dbSelect("users", [], {});
+    users = rows.map(function (u) {
+      return {
+        id: u.id, username: u.username, phone: u.phone, nickname: u.nickname,
+        role: u.role, intro: u.intro, createdAt: u.created_at
+      };
+    });
+  }
   return ok({
     ingredients: ingredients.map(rowIngredient),
     recipes: recipes.map(rowRecipe),
@@ -217,6 +228,7 @@ async function bootstrap(token) {
     comments: comments.map(rowComment),
     settings: settings,
     user: publicUser(user),
+    users: users,
     serverTime: Date.now()
   });
 }

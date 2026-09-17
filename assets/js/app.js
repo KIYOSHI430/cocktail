@@ -1902,23 +1902,25 @@
 
   function submitAuth(form, mode) {
     var fd = new FormData(form);
-    var res;
+    /* 云端模式下登录/注册是异步的，所以用回调统一处理两种模式 */
+    var done = function (res) {
+      if (!res || !res.ok) { toast((res && res.msg) || "操作失败"); return; }
+      clearInterval(smsTimer);
+      closeModal();
+      toast(mode === "login" ? "欢迎回来，" + (res.user.nickname || res.user.username) : "注册成功，" + res.user.nickname + "！");
+      render();
+    };
     if (mode === "login") {
-      res = Store.login(fd.get("account"), fd.get("password"));
+      Store.login(fd.get("account"), fd.get("password"), done);
     } else {
-      res = Store.register({
+      Store.register({
         nickname: fd.get("nickname"),
         phone: fd.get("phone"),
         code: fd.get("code"),
         password: fd.get("password"),
         confirm: fd.get("confirm")
-      });
+      }, done);
     }
-    if (!res.ok) { toast(res.msg); return; }
-    clearInterval(smsTimer);
-    closeModal();
-    toast(mode === "login" ? "欢迎回来，" + (res.user.nickname || res.user.username) : "注册成功，" + res.user.nickname + "！");
-    render();
   }
 
   /* ---------------- 图片上传（本地压缩后转 dataURL） ---------------- */
@@ -2507,7 +2509,7 @@
       if (!Store.checkPassword(me3, oldPwd)) { toast("当前密码不正确"); return; }
       if (newPwd.length < 6) { toast("新密码至少 6 位"); return; }
       if (newPwd !== String(fdPwd.get("confirmPwd") || "")) { toast("两次输入的新密码不一致"); return; }
-      Store.setPassword(me3.id, newPwd);
+      Store.setPassword(me3.id, newPwd, oldPwd);
       closeModal();
       toast("密码已更新，请记好新密码");
       return;
@@ -2643,6 +2645,27 @@
   Store.init();
   if (!location.hash) location.hash = "#/home";
   render();
+
+  /* 云端模式：配了云函数地址就先拉一次数据，拉完重新渲染 */
+  var cloudCfg = window.COCKTAIL_CLOUD || {};
+  if (cloudCfg.api) {
+    Store.initCloud({ api: cloudCfg.api }).then(function (res) {
+      if (res && res.ok) {
+        render();
+        console.log("[cloud] 数据已从云端载入");
+      } else {
+        console.warn("[cloud] 连接失败，先用本地数据：" + ((res && res.msg) || ""));
+        toast("云端连接失败，暂时使用本地数据");
+      }
+    });
+  }
+
+  /* 云端写操作失败时提示用户（比如没登录、被限流） */
+  document.addEventListener("cloud-error", function (e) {
+    var msg = (e.detail && e.detail.msg) || "操作失败";
+    toast(msg);
+  });
+
   window.addEventListener("keydown", function (e) {
     if (e.key === "Escape") { closeModal(); toggleMenu(false); }
   });

@@ -118,6 +118,12 @@
     var u = state.users.filter(function (x) { return x.id === userId; })[0];
     if (!u) return { ok: false, msg: "账号不存在" };
     if (String(newPassword || "").length < 6) return { ok: false, msg: "密码至少 6 位" };
+    if (cloudOn()) {
+      cloudSync("changePassword", {
+        oldPwd: arguments[2] || "", newPwd: newPassword, confirmPwd: newPassword
+      });
+      return { ok: true };
+    }
     u.salt = makeSalt();
     u.hash = hashPassword(newPassword, u.salt);
     delete u.password;
@@ -126,6 +132,112 @@
   }
 
   /* ---------------- 初始化 ---------------- */
+
+  /* ================= 云端模式 =================
+     开启后：
+       - 打开页面先调一次 bootstrap，把「材料 / 配方 / 帖子 / 评论 / 设置 / 当前用户」整包拉下来
+       - 之后界面上的读操作都在内存里跑（原来的同步代码照旧）
+       - 写操作本地先乐观更新（界面立刻有反应），同时异步提交到云函数
+     这样界面代码一行都不用改。 */
+
+  var CLOUD = { url: "", token: "", on: false, ready: false, error: "", user: null };
+  var TOKEN_KEY = "cocktail_cloud_token";
+
+  function cloudOn() { return !!CLOUD.on; }
+
+  function cloudCall(action, payload) {
+    if (!cloudOn()) return Promise.resolve({ ok: false, msg: "未开启云端模式" });
+    return fetch(CLOUD.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-token": CLOUD.token || "" },
+      body: JSON.stringify({ action: action, payload: payload || {}, token: CLOUD.token || "" })
+    }).then(function (r) { return r.json(); }).catch(function (e) {
+      return { ok: false, msg: "网络错误：" + (e && e.message ? e.message : e) };
+    });
+  }
+
+  /** 把云端返回的当前用户同步进本地 state（界面里到处都在读 state.users） */
+  function applyCloudUser(u) {
+    if (!u) {
+      state.users = [];
+      state.sessionUserId = null;
+      return null;
+    }
+    var local = {
+      id: u.id, username: u.username, phone: u.phone || "",
+      nickname: u.nickname || u.username, role: u.role || "user",
+      intro: u.intro || "", createdAt: u.createdAt || "",
+      favorites: u.favorites || [], postFavorites: u.postFavorites || [],
+      myIngredients: u.myIngredients || []
+    };
+    state.users = [local];
+    state.sessionUserId = local.id;
+    return local;
+  }
+
+  /** 云端整套数据落到本地内存（并写一份缓存） */
+  function applyBootstrap(data) {
+    if (data.ingredients) state.ingredients = data.ingredients;
+    if (data.recipes) state.recipes = data.recipes;
+    if (data.posts) state.posts = data.posts;
+    if (data.comments) state.comments = data.comments;
+    if (data.settings) state.settings = Object.assign(clone(window.SEED.settings), data.settings);
+    if (data.users && data.users.length) state.users = data.users;
+    applyCloudUser(data.user);
+    CLOUD.ready = true;
+    persist();
+  }
+
+  /**
+   * 开启云端模式并拉取数据。
+   * 返回 Promise，完成后调用方重新 render 一次即可。
+   */
+  function initCloud(options) {
+    options = options || {};
+    CLOUD.url = String(options.api || "").trim();
+    if (!CLOUD.url) { CLOUD.on = false; return Promise.resolve({ ok: false, msg: "未配置云函数地址" }); }
+    CLOUD.on = true;
+    try { CLOUD.token = localStorage.getItem(TOKEN_KEY) || ""; } catch (e) { CLOUD.token = ""; }
+    return cloudCall("bootstrap").then(function (res) {
+      if (!res.ok) {
+        CLOUD.error = res.msg || "拉取数据失败";
+        console.error("[cloud] bootstrap 失败：", CLOUD.error);
+        return res;
+      }
+      applyBootstrap(res.data);
+      console.log("[cloud] 已连接：材料 " + state.ingredients.length + " 种，配方 " + state.recipes.length + " 款");
+      return res;
+    });
+  }
+
+  function setToken(t) {
+    CLOUD.token = t || "";
+    try { localStorage.setItem(TOKEN_KEY, CLOUD.token); } catch (e) { /* 忽略 */ }
+  }
+
+  /** 写操作提交到云端；失败时发一个事件，由界面提示用户 */
+  function cloudSync(action, payload, onDone) {
+    if (!cloudOn()) return;
+    cloudCall(action, payload).then(function (res) {
+      if (!res.ok) {
+        console.warn("[cloud] " + action + " 失败：" + res.msg);
+        try {
+          document.dispatchEvent(new CustomEvent("cloud-error", { detail: { action: action, msg: res.msg } }));
+        } catch (e) { /* 忽略 */ }
+      } else if (onDone) {
+        onDone(res.data);
+      }
+    });
+  }
+
+  /** 云端模式下重新拉一次数据（登录、数据结构变化后用） */
+  function refresh() {
+    if (!cloudOn()) return Promise.resolve({ ok: false });
+    return cloudCall("bootstrap").then(function (res) {
+      if (res.ok) applyBootstrap(res.data);
+      return res;
+    });
+  }
 
   /** 把种子里的示例评论换算成真实时间 */
   function seedComments() {
@@ -485,6 +597,23 @@
     var password = String(data.password || "");
     var confirm = String(data.confirm == null ? data.password : data.confirm);
 
+    /* 云端模式：交给云函数注册，成功后本地同步 */
+    if (cloudOn()) {
+      var cb = arguments[1];
+      cloudCall("register", {
+        nickname: nickname, phone: phone, code: data.code,
+        password: password, confirm: confirm
+      }).then(function (res) {
+        if (res.ok) {
+          setToken(res.data.token);
+          applyCloudUser(res.data.user);
+          refresh();
+        }
+        if (cb) cb(res.ok ? { ok: true, user: currentUser() } : { ok: false, msg: res.msg });
+      });
+      return { ok: true, pending: true };
+    }
+
     if (nickname.length < 2) return { ok: false, msg: "昵称至少 2 个字" };
     if (nickname.length > 12) return { ok: false, msg: "昵称最多 12 个字" };
     if (!isPhone(phone)) return { ok: false, msg: "请输入正确的 11 位手机号" };
@@ -513,6 +642,19 @@
 
   /** 登录：手机号 + 密码；管理员等老账号也可以用原来的用户名登录 */
   function login(account, password) {
+    /* 云端模式：交给云函数校验，成功后把 token 和用户信息落到本地 */
+    if (cloudOn()) {
+      var cb = arguments[2];
+      cloudCall("login", { account: String(account || "").trim(), password: String(password || "") })
+        .then(function (res) {
+          if (res.ok) {
+            setToken(res.data.token);
+            applyCloudUser(res.data.user);
+          }
+          if (cb) cb(res.ok ? { ok: true, user: currentUser() } : { ok: false, msg: res.msg });
+        });
+      return { ok: true, pending: true };
+    }
     var key = String(account || "").trim();
     var lower = key.toLowerCase();
     var user = state.users.filter(function (u) {
@@ -530,6 +672,7 @@
 
   function logout() {
     state.sessionUserId = null;
+    if (cloudOn()) { setToken(""); CLOUD.user = null; state.users = []; }
     persist();
   }
 
@@ -671,6 +814,21 @@
       status: needReview ? "pending" : "approved"
     };
     state.recipes.unshift(recipe);
+    cloudSync("saveRecipe", {
+      recipe: {
+        id: recipe.id, name: recipe.name, en: recipe.en, type: recipe.type,
+        emoji: recipe.emoji, glass: recipe.glass, abv: recipe.abv, desc: recipe.desc,
+        image: recipe.image, video: recipe.video, videoName: recipe.videoName,
+        tags: recipe.tags, items: recipe.ingredients, steps: recipe.steps,
+        py: recipe.py || "", initial: recipe.initial || "#"
+      }
+    }, function (data) {
+      if (data && data.recipe) {
+        state.recipes = state.recipes.filter(function (x) { return x.id !== recipe.id; });
+        state.recipes.unshift(data.recipe);
+        persist();
+      }
+    });
     persist();
     return { ok: true, recipe: recipe, needReview: needReview };
   }
@@ -697,6 +855,7 @@
     state.users.forEach(function (u) {
       u.favorites = (u.favorites || []).filter(function (fid) { return fid !== id; });
     });
+    cloudSync("deleteRecipe", { id: id });
     persist();
     return { ok: true };
   }
@@ -750,9 +909,15 @@
     if (!me) return { ok: false, msg: "登录后才能收藏" };
     me.favorites = me.favorites || [];
     var idx = me.favorites.indexOf(id);
-    if (idx >= 0) { me.favorites.splice(idx, 1); persist(); return { ok: true, fav: false }; }
+    if (idx >= 0) {
+      me.favorites.splice(idx, 1);
+      persist();
+      cloudSync("toggleFavorite", { id: id, kind: "recipe" });
+      return { ok: true, fav: false };
+    }
     me.favorites.push(id);
     persist();
+    cloudSync("toggleFavorite", { id: id, kind: "recipe" });
     return { ok: true, fav: true };
   }
 
@@ -984,6 +1149,13 @@
       likes: [], pinned: false, hidden: false
     };
     state.comments.push(c);
+    cloudSync("addComment", { recipeId: recipeId, content: content, parentId: c.parentId }, function (data) {
+      if (data && data.comment) {
+        state.comments = state.comments.filter(function (x) { return x.id !== c.id; });
+        state.comments.push(data.comment);
+        persist();
+      }
+    });
     persist();
     return { ok: true, comment: decorateComment(c) };
   }
@@ -999,6 +1171,7 @@
     }
     // 删主楼时连同回复一起删
     state.comments = state.comments.filter(function (c) { return c.id !== id && c.parentId !== id; });
+    cloudSync("deleteComment", { id: id });
     persist();
     return { ok: true };
   }
@@ -1011,6 +1184,7 @@
     c.likes = c.likes || [];
     var i = c.likes.indexOf(me.id);
     if (i >= 0) c.likes.splice(i, 1); else c.likes.push(me.id);
+    cloudSync("toggleCommentLike", { id: id });
     persist();
     return { ok: true, liked: i < 0, count: c.likes.length };
   }
@@ -1022,6 +1196,7 @@
     if (!c) return { ok: false, msg: "评论不存在" };
     if (typeof patch.pinned === "boolean") c.pinned = patch.pinned;
     if (typeof patch.hidden === "boolean") c.hidden = patch.hidden;
+    cloudSync("setCommentFlags", { id: id, pinned: patch.pinned, hidden: patch.hidden });
     persist();
     return { ok: true };
   }
@@ -1158,6 +1333,16 @@
       state.posts.shift();
       return { ok: false, msg: "本地存储空间不足，帖子没发出去。少传两张图试试，或等接入云开发后再传大图。" };
     }
+    cloudSync("addPost", {
+      title: title, content: content, category: post.category,
+      images: post.images, recipeTags: post.recipeTags
+    }, function (data) {
+      if (data && data.post) {
+        state.posts = state.posts.filter(function (x) { return x.id !== post.id; });
+        state.posts.unshift(data.post);
+        persist();
+      }
+    });
     return { ok: true, post: post, rule: rule };
   }
 
@@ -1265,6 +1450,7 @@
     me.postFavorites = me.postFavorites || [];
     var i = me.postFavorites.indexOf(id);
     if (i >= 0) me.postFavorites.splice(i, 1); else me.postFavorites.push(id);
+    cloudSync("toggleFavorite", { id: id, kind: "post" });
     persist();
     return { ok: true, faved: i < 0 };
   }
@@ -1297,6 +1483,13 @@
       content: content, createdAt: new Date().toISOString(), likes: []
     };
     p.comments.push(c);
+    cloudSync("addPostComment", { postId: postId, content: content }, function (data) {
+      if (data && data.comment) {
+        p.comments = p.comments.filter(function (x) { return x.id !== c.id; });
+        p.comments.push(data.comment);
+        persist();
+      }
+    });
     persist();
     return { ok: true, comment: c };
   }
@@ -1310,6 +1503,7 @@
     if (!c) return { ok: false, msg: "回复不存在" };
     if (me.role !== "admin" && c.userId !== me.id && p.authorId !== me.id) return { ok: false, msg: "只能删自己的回复" };
     p.comments = p.comments.filter(function (x) { return x.id !== commentId; });
+    cloudSync("deletePostComment", { postId: postId, commentId: commentId });
     persist();
     return { ok: true };
   }
@@ -1322,6 +1516,7 @@
     p.likes = p.likes || [];
     var i = p.likes.indexOf(me.id);
     if (i >= 0) p.likes.splice(i, 1); else p.likes.push(me.id);
+    cloudSync("togglePostLike", { postId: postId });
     persist();
     return { ok: true, liked: i < 0, count: p.likes.length };
   }
@@ -1342,6 +1537,7 @@
     if (status === "rejected" && !p.rejectReason) p.rejectReason = "管理员判定不适合发布";
     p.reviewedBy = me.username;
     p.reviewedAt = new Date().toISOString();
+    cloudSync("setPostStatus", { id: id, status: status, reason: p.rejectReason });
     persist();
     return { ok: true, post: p };
   }
@@ -1353,6 +1549,7 @@
     if (!p) return { ok: false, msg: "帖子不存在" };
     if (me.role !== "admin" && p.authorId !== me.id) return { ok: false, msg: "只能删除自己的帖子" };
     state.posts = (state.posts || []).filter(function (x) { return x.id !== id; });
+    cloudSync("deletePost", { id: id });
     persist();
     return { ok: true };
   }
@@ -1395,6 +1592,9 @@
       handledBy: "", handledAt: ""
     };
     state.reports.push(rep);
+    cloudSync("addReport", {
+      recipeId: recipeId || null, type: rep.type, content: rep.content, suggest: rep.suggest
+    });
     persist();
     return { ok: true, report: rep };
   }
@@ -1746,6 +1946,7 @@
 
   function updateSettings(patch) {
     Object.assign(state.settings, patch);
+    cloudSync("updateSettings", { patch: patch });
     persist();
   }
 
@@ -1785,6 +1986,11 @@
 
   window.Store = {
     init: load,
+    // 云端
+    initCloud: initCloud,
+    cloudOn: cloudOn,
+    refresh: refresh,
+    cloudError: function () { return CLOUD.error; },
     categories: function () { return window.SEED.categories.slice(); },
     nowISO: nowISO,
 
