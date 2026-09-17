@@ -164,13 +164,16 @@
       return null;
     }
     var local = {
-      id: u.id, username: u.username, phone: u.phone || "",
+      id: u.id, username: u.username, email: u.email || "", phone: u.phone || "",
       nickname: u.nickname || u.username, role: u.role || "user",
       intro: u.intro || "", createdAt: u.createdAt || "",
       favorites: u.favorites || [], postFavorites: u.postFavorites || [],
       myIngredients: u.myIngredients || []
     };
-    state.users = [local];
+    /* 注意：管理员登录时 bootstrap 会带回全部用户名单，这里要把自己"并"进名单，
+       不能直接覆盖，否则管理后台的用户管理里就只剩自己一个人了。 */
+    var others = (state.users || []).filter(function (x) { return x.id !== local.id; });
+    state.users = [local].concat(others);
     state.sessionUserId = local.id;
     return local;
   }
@@ -182,7 +185,8 @@
     if (data.posts) state.posts = data.posts;
     if (data.comments) state.comments = data.comments;
     if (data.settings) state.settings = Object.assign(clone(window.SEED.settings), data.settings);
-    if (data.users && data.users.length) state.users = data.users;
+    // 用户名单以云端为准：管理员会拿到全部用户，普通访客拿到空名单
+    state.users = data.users || [];
     applyCloudUser(data.user);
     CLOUD.ready = true;
     persist();
@@ -296,6 +300,7 @@
     u.postFavorites = u.postFavorites || [];
     u.myIngredients = u.myIngredients || [];
     u.nickname = u.nickname || u.username;
+    u.email = u.email || "";
     u.phone = u.phone || "";
     u.intro = u.intro || "";
     u.createdAt = u.createdAt || nowISO();
@@ -366,7 +371,7 @@
       settings: clone(window.SEED.settings),
       sessionUserId: null,
       guestIngredients: [],
-      smsCodes: {}
+      verifyCodes: {}
     };
     return s;
   }
@@ -408,12 +413,14 @@
     s.recipes.forEach(normalizeRecipe);
     s.users.forEach(normalizeUser);
 
-    // 管理员账号升级：老版本是"用户名 admin + 明文密码"，这里换成手机号 + 哈希密码。
-    // 只在还没设置手机号时替换，之后你在后台改了手机号或密码都不会被覆盖。
+    // 管理员账号升级：老版本是"用户名 admin + 明文密码"，后来是手机号，
+    // 现在统一用邮箱登录。只在对应字段还空着时补，之后你在后台改过的都不会被覆盖。
     var seedAdmin = (window.SEED.users || []).filter(function (u) { return u.role === "admin"; })[0];
     if (seedAdmin) {
       var adm = s.users.filter(function (u) { return u.id === "u-admin"; })[0] ||
                 s.users.filter(function (u) { return u.role === "admin"; })[0];
+      if (adm && !adm.email) adm.email = seedAdmin.email;
+      if (adm && "17345930612" === adm.username) adm.username = seedAdmin.username;
       if (adm && !adm.phone) {
         adm.id = "u-admin";
         adm.phone = seedAdmin.phone;
@@ -469,7 +476,8 @@
     if (!Array.isArray(s.comments)) s.comments = seedComments();
     if (!Array.isArray(s.reports)) s.reports = [];
     if (typeof s.dailyOverride === "undefined") s.dailyOverride = null;
-    if (!s.smsCodes) s.smsCodes = {};
+    if (!s.verifyCodes) s.verifyCodes = s.smsCodes || {};
+    delete s.smsCodes;
 
     // 站点更名：只有还停留在旧名字时才跟着改，你自己设过的名字不会被覆盖
     if (s.settings.siteName === "今晚喝什么") s.settings.siteName = "鸡尾酒法典";
@@ -492,7 +500,8 @@
           state.reports = state.reports || [];
           state.posts = state.posts || [];
           state.dailyOverride = state.dailyOverride || null;
-          state.smsCodes = state.smsCodes || {};
+          state.verifyCodes = state.verifyCodes || state.smsCodes || {};
+          delete state.smsCodes;
           state.users.forEach(normalizeUser);
           // 每次打开都补齐一次新增的材料/配方/示例帖（幂等，用户内容不受影响）
           if (oldVersion >= DATA_VERSION) {
@@ -534,16 +543,35 @@
     return !!(u && u.role === "admin");
   }
 
-  /* ---------- 手机号 ---------- */
+  /* ---------- 邮箱 ---------- */
+
+  var EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
+  function isEmail(v) {
+    return EMAIL_RE.test(String(v || "").trim());
+  }
 
   function isPhone(v) {
     return /^1[3-9]\d{9}$/.test(String(v || "").trim());
   }
 
-  /** 138****1234，展示用 */
+  /** 3246***@qq.com，展示用 */
+  function maskEmail(email) {
+    var e = String(email || "");
+    var at = e.indexOf("@");
+    if (at <= 0) return e;
+    return e.slice(0, Math.min(3, at)) + "***" + e.slice(at);
+  }
+
+  /** 138****1234，展示用（老账号可能还留着手机号） */
   function maskPhone(phone) {
     var p = String(phone || "");
     return isPhone(p) ? p.slice(0, 3) + "****" + p.slice(7) : p;
+  }
+
+  function emailTaken(email) {
+    var e = String(email || "").trim().toLowerCase();
+    return (state.users || []).some(function (u) { return String(u.email || "").toLowerCase() === e; });
   }
 
   function phoneTaken(phone) {
@@ -552,57 +580,86 @@
   }
 
   /**
-   * 发送短信验证码。
-   * 现在没有后端，用「演示模式」：直接生成验证码并返回，界面会把它显示出来。
-   * 接入云函数后（后台填短信云函数地址），这里会自动改成调用真实短信服务。
+   * 发送邮箱验证码。
+   *   云端模式：云函数生成验证码并存进数据库；配了 SMTP 就真发邮件，
+   *            没配就把验证码返回给页面显示出来（演示模式）。
+   *   本地模式：直接生成，只存在这台电脑的浏览器里，用于离线调试。
    */
-  function sendSmsCode(phone, purpose) {
-    phone = String(phone || "").trim();
-    if (!isPhone(phone)) return { ok: false, msg: "请输入正确的 11 位手机号" };
-    if (purpose === "register" && phoneTaken(phone)) return { ok: false, msg: "这个手机号已经注册过了，直接登录就行" };
-    var endpoint = state.settings.smsEndpoint || "";
-    var code = String(Math.floor(100000 + Math.random() * 900000));
-    state.smsCodes = state.smsCodes || {};
-    state.smsCodes[phone] = { code: code, at: Date.now(), purpose: purpose || "register" };
-    persist();
-    if (endpoint && typeof fetch === "function") {
-      fetch(endpoint, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phone, code: code, purpose: purpose || "register" })
-      }).catch(function () { /* 发失败也不影响演示流程 */ });
-      return { ok: true, mode: "sms", msg: "验证码已发送" };
+  function sendEmailCode(email, purpose, cb) {
+    email = String(email || "").trim().toLowerCase();
+    purpose = purpose || "register";
+    if (!isEmail(email)) return { ok: false, msg: "请输入正确的邮箱地址" };
+    if (purpose === "register" && emailTaken(email)) return { ok: false, msg: "这个邮箱已经注册过了，直接登录就行" };
+
+    if (cloudOn()) {
+      cloudCall("sendCode", { email: email, purpose: purpose }).then(function (res) {
+        if (res.ok && res.data && res.data.code) {
+          state.verifyCodes = state.verifyCodes || {};
+          state.verifyCodes[email] = { code: res.data.code, at: Date.now(), purpose: purpose };
+          persist();
+        }
+        if (cb) cb(res.ok ? Object.assign({ ok: true }, res.data) : { ok: false, msg: res.msg });
+      });
+      return { ok: true, pending: true };
     }
-    // 演示模式：60 秒内有效
-    return { ok: true, mode: "demo", code: code, msg: "验证码（演示模式）：" + code };
+
+    var code = String(Math.floor(100000 + Math.random() * 900000));
+    state.verifyCodes = state.verifyCodes || {};
+    state.verifyCodes[email] = { code: code, at: Date.now(), purpose: purpose };
+    persist();
+    var demo = { ok: true, mode: "demo", code: code, msg: "验证码（演示模式）：" + code };
+    if (cb) cb(demo);
+    return demo;
   }
 
-  function checkSmsCode(phone, code) {
-    phone = String(phone || "").trim();
+  /** 本地模式下校验验证码（云端模式由云函数在注册时校验） */
+  function checkEmailCode(email, code, purpose) {
+    email = String(email || "").trim().toLowerCase();
     code = String(code || "").trim();
-    var rec = (state.smsCodes || {})[phone];
-    if (!rec) return { ok: false, msg: "请先获取验证码" };
+    var rec = (state.verifyCodes || {})[email];
+    if (!rec || !rec.code) return { ok: false, msg: "请先获取验证码" };
     if (Date.now() - rec.at > 10 * 60 * 1000) return { ok: false, msg: "验证码已过期，请重新获取" };
     if (rec.code !== code) return { ok: false, msg: "验证码不正确" };
     return { ok: true };
   }
 
+  /** 注册表单的统一校验，返回 { ok, msg, values } */
+  function validateRegister(data) {
+    data = data || {};
+    var values = {
+      nickname: String(data.nickname || "").trim(),
+      email: String(data.email || "").trim().toLowerCase(),
+      code: String(data.code || "").trim(),
+      password: String(data.password || ""),
+      confirm: String(data.confirm == null ? data.password : data.confirm)
+    };
+    if (values.nickname.length < 2) return { ok: false, msg: "昵称至少 2 个字" };
+    if (values.nickname.length > 12) return { ok: false, msg: "昵称最多 12 个字" };
+    if (!isEmail(values.email)) return { ok: false, msg: "请输入正确的邮箱地址" };
+    if (!/^\d{6}$/.test(values.code)) return { ok: false, msg: "请输入 6 位数字验证码" };
+    if (values.password.length < 6) return { ok: false, msg: "密码至少 6 位" };
+    if (data.confirm !== undefined && values.password !== values.confirm) return { ok: false, msg: "两次输入的密码不一致" };
+    return { ok: true, values: values };
+  }
+
   /**
-   * 注册：昵称 + 手机号 + 验证码 + 密码。
-   * 昵称可以重复（不唯一），手机号唯一。
+   * 注册：昵称 + 邮箱 + 验证码 + 密码。
+   * 昵称可以重复（不唯一），邮箱唯一。
    */
   function register(data) {
-    data = data || {};
-    var nickname = String(data.nickname || "").trim();
-    var phone = String(data.phone || "").trim();
-    var password = String(data.password || "");
-    var confirm = String(data.confirm == null ? data.password : data.confirm);
+    var cb = arguments[1];
+    var check = validateRegister(data);
+    var values = check.values || {};
 
-    /* 云端模式：交给云函数注册，成功后本地同步 */
+    /* 云端模式：交给云函数注册（验证码也由服务端校验），成功后本地同步 */
     if (cloudOn()) {
-      var cb = arguments[1];
+      if (!check.ok) {
+        if (cb) setTimeout(function () { cb({ ok: false, msg: check.msg }); }, 0);
+        return { ok: false, msg: check.msg };
+      }
       cloudCall("register", {
-        nickname: nickname, phone: phone, code: data.code,
-        password: password, confirm: confirm
+        nickname: values.nickname, email: values.email, code: values.code,
+        password: values.password, confirm: values.confirm
       }).then(function (res) {
         if (res.ok) {
           setToken(res.data.token);
@@ -614,33 +671,30 @@
       return { ok: true, pending: true };
     }
 
-    if (nickname.length < 2) return { ok: false, msg: "昵称至少 2 个字" };
-    if (nickname.length > 12) return { ok: false, msg: "昵称最多 12 个字" };
-    if (!isPhone(phone)) return { ok: false, msg: "请输入正确的 11 位手机号" };
-    if (phoneTaken(phone)) return { ok: false, msg: "这个手机号已经注册过了" };
-    var sms = checkSmsCode(phone, data.code);
-    if (!sms.ok) return { ok: false, msg: sms.msg };
-    if (password.length < 6) return { ok: false, msg: "密码至少 6 位" };
-    if (data.confirm !== undefined && password !== confirm) return { ok: false, msg: "两次输入的密码不一致" };
+    if (!check.ok) return { ok: false, msg: check.msg };
+    if (emailTaken(values.email)) return { ok: false, msg: "这个邮箱已经注册过了" };
+    var vc = checkEmailCode(values.email, values.code, "register");
+    if (!vc.ok) return { ok: false, msg: vc.msg };
 
     var user = {
       id: newId("u"),
-      phone: phone,
-      username: phone,          // 兼容旧逻辑（唯一标识）
-      nickname: nickname,
+      email: values.email,
+      phone: "",
+      username: values.email,    // 兼容旧逻辑（唯一标识）
+      nickname: values.nickname,
       role: "user", intro: "",
       createdAt: nowISO(), favorites: [], postFavorites: [], myIngredients: []
     };
     user.salt = makeSalt();
-    user.hash = hashPassword(password, user.salt);
+    user.hash = hashPassword(values.password, user.salt);
     state.users.push(user);
     state.sessionUserId = user.id;
-    delete state.smsCodes[phone];
+    delete state.verifyCodes[values.email];
     persist();
     return { ok: true, user: user };
   }
 
-  /** 登录：手机号 + 密码；管理员等老账号也可以用原来的用户名登录 */
+  /** 登录：邮箱 + 密码；老账号也可以用手机号或原来的用户名登录 */
   function login(account, password) {
     /* 云端模式：交给云函数校验，成功后把 token 和用户信息落到本地 */
     if (cloudOn()) {
@@ -660,10 +714,11 @@
     var user = state.users.filter(function (u) {
       if (!checkPassword(u, password)) return false;
       if (isPhone(key)) return u.phone === key;
+      if (isEmail(key)) return String(u.email || "").toLowerCase() === lower;
       return String(u.username || "").toLowerCase() === lower;
     })[0];
     if (!user) {
-      return { ok: false, msg: isPhone(key) ? "手机号或密码不正确" : "账号或密码不正确" };
+      return { ok: false, msg: isEmail(key) ? "邮箱或密码不正确" : (isPhone(key) ? "手机号或密码不正确" : "账号或密码不正确") };
     }
     state.sessionUserId = user.id;
     persist();
@@ -687,7 +742,8 @@
       delete next.password;
     }
     Object.assign(u, next);
-    if (u.phone) u.username = u.phone;
+    if (u.email) u.username = u.email;
+    else if (u.phone) u.username = u.phone;
     persist();
   }
 
@@ -1966,7 +2022,8 @@
       state.reports = state.reports || [];
       state.posts = state.posts || [];
       state.dailyOverride = state.dailyOverride || null;
-      state.smsCodes = state.smsCodes || {};
+      state.verifyCodes = state.verifyCodes || state.smsCodes || {};
+      delete state.smsCodes;
       state.users.forEach(normalizeUser);
       state.recipes.forEach(normalizeRecipe);
       state.sessionUserId = null;
@@ -1999,8 +2056,14 @@
     isAdmin: isAdmin,
     register: register,
     login: login,
-    sendSmsCode: sendSmsCode,
-    checkSmsCode: checkSmsCode,
+    sendEmailCode: sendEmailCode,
+    checkEmailCode: checkEmailCode,
+    isEmail: isEmail,
+    maskEmail: maskEmail,
+    emailTaken: emailTaken,
+    // 兼容旧调用名
+    sendSmsCode: sendEmailCode,
+    checkSmsCode: checkEmailCode,
     isPhone: isPhone,
     maskPhone: maskPhone,
     phoneTaken: phoneTaken,

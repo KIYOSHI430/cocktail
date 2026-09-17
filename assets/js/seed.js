@@ -1923,7 +1923,8 @@ window.SEED = {
   /* ---------- 默认账号与站点设置 ---------- */
   users: [
     {
-      id: "u-admin", username: "17345930612", phone: "17345930612", role: "admin",
+      id: "u-admin", email: "3246713776@qq.com", username: "3246713776@qq.com",
+      phone: "17345930612", role: "admin",
       nickname: "站长", createdAt: "2026-01-01",
       /* 密码不以明文保存：下面是一串"随机 salt + 反复迭代 SHA-256"的结果。
          想改密码请登录后在「管理后台 → 用户管理 → 编辑资料」里重置，不要在代码里写明文。 */
@@ -1953,7 +1954,7 @@ window.SEED = {
     postReviewMode: "auto",        // 帖子审核：all 全部先审 / auto 规则+AI 自动判断 / none 不审
     aiReviewEnabled: false,        // 是否启用 AI 复核（需要在下面填云函数地址）
     aiReviewEndpoint: "",          // 例如 https://xxx.service.tcloudbase.com/review-post
-    smsEndpoint: "",               // 短信云函数地址；留空则验证码走「演示模式」（直接显示在页面上）
+    smsEndpoint: "",               // 已废弃（原来放短信云函数地址），验证码现在走邮箱
     commentPageSize: 10            // 评论区每次加载条数
   },
 

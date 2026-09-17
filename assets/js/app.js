@@ -1466,7 +1466,7 @@
 
     view.innerHTML =
       '<section class="page-head"><h1>我的</h1><p>' + esc(me.nickname || me.username) + " · " + Store.roleLabel() +
-        (me.phone ? " · " + esc(Store.maskPhone(me.phone)) : " · 用户名账号") +
+        (me.email ? " · " + esc(Store.maskEmail(me.email)) : (me.phone ? " · " + esc(Store.maskPhone(me.phone)) : " · 用户名账号")) +
         " · 注册于 " + esc(me.createdAt) + "</p></section>" +
 
       '<section class="panel"><h3>我的身份与权限 <span class="mute-text">（' + Store.roleLabel() + "）</span></h3>" +
@@ -1737,9 +1737,9 @@
       var count = Store.listRecipes().filter(function (r) { return r.authorId === u.id; }).length;
       var cmts = Store.adminComments({}).filter(function (c) { return c.userId === u.id; }).length;
       return "<tr>" +
-        "<td>" + avatarHTML(u.nickname || u.username, "sm") + " " + esc(u.username) +
+        "<td>" + avatarHTML(u.nickname || u.username, "sm") + " " + esc(u.nickname || u.username) +
           (u.id === me.id ? ' <span class="badge mute">当前账号</span>' : "") + "</td>" +
-        '<td class="mute-text">' + (u.phone ? esc(Store.maskPhone(u.phone)) : "—") + "</td>" +
+        '<td class="mute-text">' + (u.email ? esc(u.email) : (u.phone ? esc(Store.maskPhone(u.phone)) : "—")) + "</td>" +
         "<td>" + (u.role === "admin" ? '<span class="badge role-badge">管理员</span>' : "普通用户") + "</td>" +
         "<td>" + esc(u.createdAt || "") + "</td>" +
         "<td>" + count + " 款</td>" +
@@ -1764,7 +1764,7 @@
         "</ul></div>" +
       "</div>" +
       "<h3>用户管理 <span class=\"mute-text\">（共 " + Store.users().length + " 人）</span></h3>" +
-      '<div class="table-wrap"><table class="table"><thead><tr><th>用户</th><th>手机号</th><th>角色</th><th>注册时间</th><th>配方</th><th>评论</th><th>操作</th></tr></thead><tbody>' +
+      '<div class="table-wrap"><table class="table"><thead><tr><th>用户</th><th>登录邮箱</th><th>角色</th><th>注册时间</th><th>配方</th><th>评论</th><th>操作</th></tr></thead><tbody>' +
       rows + "</tbody></table></div>" +
       '<p class="mute-text">提示：原型阶段密码保存在本机浏览器里，正式上线请换成服务器账号系统。</p>';
   }
@@ -1805,10 +1805,9 @@
         '<label class="field"><span>AI 审核云函数地址<em class="opt">选填</em></span>' +
           '<input class="input" name="aiReviewEndpoint" value="' + esc(s.aiReviewEndpoint || "") + '" placeholder="https://xxxx.service.tcloudbase.com/review-post"></label>' +
         '<p class="mute-text">API Key 不能放在网页里（仓库是公开的，会被盗用）。正确做法是：Key 存在云函数的环境变量里，网页只把内容发给云函数。云函数示例代码见项目里的 <code>cloud/review-post/</code>。</p>' +
-        '<h3 class="form-title">短信验证码</h3>' +
-        '<label class="field"><span>短信云函数地址<em class="opt">选填</em></span>' +
-          '<input class="input" name="smsEndpoint" value="' + esc(s.smsEndpoint || "") + '" placeholder="https://xxxx.service.tcloudbase.com/send-sms"></label>' +
-        '<p class="mute-text">留空时注册页的验证码是<b>演示模式</b>：验证码会直接显示在页面上，方便先跑通流程。填上短信云函数地址后，就会改成真实发送（腾讯云短信约 0.04 元/条，需实名与签名审核）。</p>' +
+        '<h3 class="form-title">邮箱验证码</h3>' +
+        '<p class="mute-text">注册、重置密码用的验证码走邮箱。当前的默认状态是<b>演示模式</b>：验证码直接显示在注册页上，先跑通流程用。' +
+        '要改成真实发邮件：在云函数 <code>api</code> 的「环境变量」里加上 <code>SMTP_USER</code>（发件邮箱）和 <code>SMTP_PASS</code>（该邮箱的<b>授权码</b>，不是登录密码），保存后重新部署云函数即可，网页这边不用改。</p>' +
         '<div class="form-foot"><button class="btn" type="submit">保存设置</button></div>' +
       "</form>";
   }
@@ -1835,19 +1834,19 @@
     authMode = isLogin ? "login" : "register";
     clearInterval(smsTimer);
     openModal(
-      "<h2>" + (isLogin ? "登录" : "注册手机号账号") + "</h2>" +
+      "<h2>" + (isLogin ? "登录" : "注册邮箱账号") + "</h2>" +
       '<form id="authForm" class="form" autocomplete="off">' +
         (isLogin
-          ? '<label class="field"><span>手机号</span>' +
-            '<input class="input" name="account" inputmode="numeric" placeholder="11 位手机号" required></label>'
+          ? '<label class="field"><span>邮箱</span>' +
+            '<input class="input" name="account" type="email" placeholder="name@example.com" required></label>'
           : '<label class="field"><span>昵称</span>' +
             '<input class="input" name="nickname" maxlength="12" placeholder="2-12 个字，可以重复" required></label>' +
-            '<label class="field"><span>手机号</span>' +
-            '<input class="input" name="phone" inputmode="numeric" maxlength="11" placeholder="11 位手机号" required></label>' +
+            '<label class="field"><span>邮箱</span>' +
+            '<input class="input" name="email" type="email" placeholder="name@example.com" required></label>' +
             '<label class="field"><span>验证码</span>' +
               '<div class="code-row">' +
                 '<input class="input" name="code" inputmode="numeric" maxlength="6" placeholder="6 位验证码" required>' +
-                '<button type="button" class="btn ghost" id="smsBtn" data-action="send-sms">获取验证码</button>' +
+                '<button type="button" class="btn ghost" id="smsBtn" data-action="send-email">获取验证码</button>' +
               "</div>" +
               '<span class="field-hint" id="smsHint"></span>' +
             "</label>"
@@ -1855,35 +1854,29 @@
         '<label class="field"><span>密码</span><input class="input" name="password" type="password" placeholder="至少 6 位" required></label>' +
         (isLogin ? "" : '<label class="field"><span>确认密码</span><input class="input" name="confirm" type="password" placeholder="再输入一次密码" required></label>') +
         (isLogin
-          ? '<p class="mute-text">用注册时的手机号和密码登录。管理员账号也可以用用户名登录。</p>'
-          : '<p class="mute-text">昵称可以重复，手机号不能重复注册。注册后即可发帖、发配方、评论和收藏。</p>') +
+          ? '<p class="mute-text">用注册时的邮箱和密码登录。老账号也可以用手机号或用户名登录。</p>'
+          : '<p class="mute-text">昵称可以重复，邮箱不能重复注册。注册后即可发帖、发配方、评论和收藏。</p>') +
         '<div class="form-foot"><button class="btn" type="submit">' + (isLogin ? "登录" : "注册并登录") + "</button>" +
         '<button type="button" class="btn ghost" data-action="close-modal">取消</button></div>' +
       "</form>" +
-      (isLogin ? '<p class="mute-text">管理员请用自己的手机号登录。演示用普通账号：<b>demo</b> / <b>123456</b></p>' : "") +
+      (isLogin ? '<p class="mute-text">管理员请用自己的邮箱登录。</p>' : "") +
       '<p class="mute-text">改成 <a href="#" data-action="switch-auth" data-value="' + (isLogin ? "register" : "login") + '">' +
       (isLogin ? "没有账号？去注册" : "已有账号？去登录") + "</a></p>"
     );
   }
 
-  /** 注册时的「获取验证码」：演示模式直接把验证码显示出来，接短信服务后改成真实发送 */
-  function sendSmsCode() {
+  /** 注册时的「获取验证码」：没配邮箱发信时走演示模式，直接把验证码显示在页面上 */
+  function sendEmailCode() {
     var form = document.getElementById("authForm");
     if (!form) return;
-    var phone = String((form.querySelector('[name="phone"]') || {}).value || "").trim();
-    var res = Store.sendSmsCode(phone, "register");
-    if (!res.ok) { toast(res.msg); return; }
     var hint = document.getElementById("smsHint");
     var btn = document.getElementById("smsBtn");
-    if (hint) {
-      hint.innerHTML = res.mode === "demo"
-        ? "演示模式（还没接短信服务）：验证码是 <b>" + esc(res.code) + "</b>，请手动填入上方"
-        : "验证码已发送到 " + esc(Store.maskPhone(phone)) + "，10 分钟内有效";
-    }
-    toast(res.msg);
-    // 60 秒倒计时
-    var left = 60;
-    if (btn) {
+    var email = String((form.querySelector('[name="email"]') || {}).value || "").trim();
+
+    var countdown = function () {
+      // 60 秒倒计时
+      var left = 60;
+      if (!btn) return;
       btn.disabled = true;
       btn.textContent = left + "s 后重发";
       clearInterval(smsTimer);
@@ -1897,7 +1890,19 @@
           btn.textContent = left + "s 后重发";
         }
       }, 1000);
-    }
+    };
+
+    var res = Store.sendEmailCode(email, "register", function (r) {
+      if (!r || !r.ok) { toast((r && r.msg) || "验证码发送失败"); return; }
+      if (hint) {
+        hint.innerHTML = r.mode === "demo"
+          ? "演示模式（还没配邮箱发信）：验证码是 <b>" + esc(r.code) + "</b>，请手动填入上方"
+          : "验证码已发送到 " + esc(Store.maskEmail(email)) + "，10 分钟内有效";
+      }
+      toast(r.msg || "验证码已发送");
+      countdown();
+    });
+    if (res && res.ok === false) { toast(res.msg); return; }
   }
 
   function submitAuth(form, mode) {
@@ -1915,7 +1920,7 @@
     } else {
       Store.register({
         nickname: fd.get("nickname"),
-        phone: fd.get("phone"),
+        email: fd.get("email"),
         code: fd.get("code"),
         password: fd.get("password"),
         confirm: fd.get("confirm")
@@ -2088,7 +2093,7 @@
         break;
       }
       case "switch-auth": authModal(value); break;
-      case "send-sms": sendSmsCode(); break;
+      case "send-email": sendEmailCode(); break;
       case "close-modal": closeModal(); break;
       case "logout": Store.logout(); toast("已退出登录"); render(); break;
       case "open-recipe": go("#/recipe/" + id); break;
@@ -2547,8 +2552,7 @@
         allowUserPost: !!fd5.get("allowUserPost"),
         postReviewMode: fd5.get("postReviewMode") || "auto",
         aiReviewEnabled: !!fd5.get("aiReviewEnabled"),
-        aiReviewEndpoint: String(fd5.get("aiReviewEndpoint") || "").trim(),
-        smsEndpoint: String(fd5.get("smsEndpoint") || "").trim()
+        aiReviewEndpoint: String(fd5.get("aiReviewEndpoint") || "").trim()
       });
       toast("设置已保存");
       renderHeader();

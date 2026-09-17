@@ -136,6 +136,137 @@ function checkPassword(user, password) {
     crypto.timingSafeEqual(Buffer.from(h), Buffer.from(String(user.hash)));
 }
 
+/* ---------------- 邮箱与验证码 ---------------- */
+
+const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+const CODE_TTL_MS = 10 * 60 * 1000;    // 验证码 10 分钟有效
+const CODE_GAP_MS = 60 * 1000;         // 同一邮箱 60 秒内只能发一次
+
+function normEmail(v) { return String(v || "").trim().toLowerCase(); }
+
+/** 3246***@qq.com，展示用 */
+function maskEmail(email) {
+  const e = String(email || "");
+  const at = e.indexOf("@");
+  if (at <= 0) return e;
+  const name = e.slice(0, at);
+  return name.slice(0, Math.min(3, name.length)) + "***" + e.slice(at);
+}
+
+/** 数据库列不存在时给出人话提示（通常是升级 SQL 还没执行） */
+function friendlyDbError(e) {
+  const msg = String((e && e.message) || e || "");
+  if (/column .*email.* does not exist/i.test(msg)) {
+    return "数据库还没有 email 字段：请在云开发控制台执行升级 SQL（见 docs/邮箱验证码指南.md）";
+  }
+  if (/relation .*verify_codes.* does not exist/i.test(msg)) {
+    return "数据库还没有验证码表：请在云开发控制台执行升级 SQL（见 docs/邮箱验证码指南.md）";
+  }
+  return msg;
+}
+
+/**
+ * 自带的极简 SMTP 发信（QQ 邮箱 465 端口，隐式 TLS）。
+ * 不依赖第三方包，避免云函数装依赖出问题。
+ * 需要在云函数「环境变量」里配置：SMTP_USER / SMTP_PASS（QQ 邮箱授权码）。
+ */
+function smtpSend(to, subject, text) {
+  return new Promise(function (resolve) {
+    const host = process.env.SMTP_HOST || "smtp.qq.com";
+    const port = Number(process.env.SMTP_PORT || 465);
+    const user = String(process.env.SMTP_USER || "").trim();
+    const pass = String(process.env.SMTP_PASS || "").trim();
+    if (!user || !pass) return resolve({ ok: false, error: "未配置 SMTP_USER / SMTP_PASS" });
+
+    const tls = require("tls");
+    let finished = false;
+    let socket = null;
+    function finish(r) {
+      if (finished) return;
+      finished = true;
+      try { if (socket) socket.destroy(); } catch (e) { /* 忽略 */ }
+      resolve(r);
+    }
+
+    try {
+      socket = tls.connect({ host: host, port: port, servername: host });
+    } catch (e) {
+      return finish({ ok: false, error: "SMTP 连接失败：" + e.message });
+    }
+    socket.setTimeout(20000, function () { finish({ ok: false, error: "SMTP 超时" }); });
+    socket.on("error", function (e) { finish({ ok: false, error: "SMTP 出错：" + e.message }); });
+
+    const body =
+      "From: =?UTF-8?B?" + Buffer.from("鸡尾酒法典").toString("base64") + "?= <" + user + ">\r\n" +
+      "To: <" + to + ">\r\n" +
+      "Subject: =?UTF-8?B?" + Buffer.from(subject).toString("base64") + "?=\r\n" +
+      "MIME-Version: 1.0\r\n" +
+      "Content-Type: text/plain; charset=UTF-8\r\n" +
+      "Content-Transfer-Encoding: base64\r\n\r\n" +
+      Buffer.from(text, "utf8").toString("base64").replace(/(.{76})/g, "$1\r\n") +
+      "\r\n.";
+
+    const steps = [
+      { cmd: "EHLO cocktail.local", ok: [250] },
+      { cmd: "AUTH LOGIN", ok: [334] },
+      { cmd: Buffer.from(user).toString("base64"), ok: [334] },
+      { cmd: Buffer.from(pass).toString("base64"), ok: [235] },
+      { cmd: "MAIL FROM:<" + user + ">", ok: [250] },
+      { cmd: "RCPT TO:<" + to + ">", ok: [250, 251] },
+      { cmd: "DATA", ok: [354] },
+      { cmd: body, ok: [250] },
+      { cmd: "QUIT", ok: [221], last: true }
+    ];
+    let step = 0;        // 已经发出去的命令条数
+    let greeted = false; // 服务器开机问候（220）只处理一次
+    let buf = "";
+
+    function sendNext() {
+      const next = steps[step++];
+      try { socket.write(next.cmd + "\r\n"); }
+      catch (e) { finish({ ok: false, error: "SMTP 写入失败：" + e.message }); }
+    }
+
+    function pump(line) {
+      const code = Number(line.slice(0, 3));
+      if (!greeted) {
+        greeted = true;
+        if (code !== 220) return finish({ ok: false, error: "SMTP 欢迎语异常：" + line.slice(0, 120) });
+        return sendNext();
+      }
+      const expect = steps[step - 1];
+      if (!expect || expect.ok.indexOf(code) < 0) {
+        return finish({ ok: false, error: "SMTP 第 " + step + " 步返回 " + line.slice(0, 120) });
+      }
+      if (expect.last) return finish({ ok: true });
+      sendNext();
+    }
+
+    socket.on("data", function (chunk) {
+      buf += chunk.toString("utf8");
+      let idx;
+      // 完整的一行回复形如 "250 xxx"（多行回复是 "250-xxx"，要等最后一行）
+      while ((idx = buf.indexOf("\r\n")) >= 0) {
+        const line = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        if (/^\d{3}[ ]/.test(line)) pump(line);
+      }
+    });
+  });
+}
+
+async function sendVerifyMail(to, code, purpose) {
+  const title = purpose === "reset" ? "重置密码验证码" : "注册验证码";
+  return smtpSend(
+    to,
+    "【鸡尾酒法典】" + title + "：" + code,
+    "你的" + title + "是 " + code + "\n\n" +
+    "10 分钟内有效，请勿把验证码告诉任何人。\n" +
+    "如果这不是你本人的操作，忽略这封邮件即可。\n\n" +
+    "—— 鸡尾酒法典"
+  );
+}
+
 async function createSession(userId) {
   const token = crypto.randomBytes(24).toString("hex");
   await dbInsert("sessions", { token: token, user_id: userId, expires_at: Date.now() + SESSION_DAYS * 86400000 });
@@ -152,7 +283,8 @@ async function userByToken(token) {
 function publicUser(u) {
   if (!u) return null;
   return {
-    id: u.id, phone: u.phone || "",
+    id: u.id, email: u.email || "", phone: u.phone || "",
+    emailMasked: maskEmail(u.email),
     phoneMasked: u.phone ? u.phone.slice(0, 3) + "****" + u.phone.slice(7) : "",
     username: u.username, nickname: u.nickname || u.username, role: u.role || "user",
     intro: u.intro || "", createdAt: u.created_at,
@@ -216,7 +348,7 @@ async function bootstrap(token) {
     const rows = await dbSelect("users", [], {});
     users = rows.map(function (u) {
       return {
-        id: u.id, username: u.username, phone: u.phone, nickname: u.nickname,
+        id: u.id, username: u.username, email: u.email || "", phone: u.phone || "", nickname: u.nickname,
         role: u.role, intro: u.intro, createdAt: u.created_at
       };
     });
@@ -235,38 +367,114 @@ async function bootstrap(token) {
 
 /* ---------------- 账号 ---------------- */
 
+/** 生成并保存一个验证码；发信失败时把验证码原样返回（演示模式） */
+async function sendCode(payload) {
+  const email = normEmail(payload.email);
+  const purpose = payload.purpose === "reset" ? "reset" : "register";
+  if (!EMAIL_RE.test(email)) return fail("请输入正确的邮箱地址");
+
+  try {
+    if (purpose === "register") {
+      const exists = await dbSelectOne("users", [{ col: "email", val: email }]);
+      if (exists) return fail("这个邮箱已经注册过了，直接登录就行");
+    }
+
+    const rows = await dbSelect("verify_codes", [{ col: "target", val: email }], { order: "created_at", asc: false, limit: 1 });
+    const last = rows[0];
+    if (last && Date.now() - new Date(last.created_at).getTime() < CODE_GAP_MS) {
+      return fail("验证码刚发过，请 60 秒后再试");
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    await dbInsert("verify_codes", {
+      id: newId("vc"), target: email, code: code, purpose: purpose,
+      expires_at: Date.now() + CODE_TTL_MS, created_at: new Date().toISOString()
+    });
+
+    const mail = await sendVerifyMail(email, code, purpose);
+    if (mail.ok) {
+      return ok({ sent: true, mode: "smtp", msg: "验证码已发送到 " + maskEmail(email) + "，10 分钟内有效" });
+    }
+    // 还没配 SMTP：走演示模式，把验证码返回给页面显示出来，方便先跑通流程
+    return ok({
+      sent: true, mode: "demo", code: code,
+      mailError: mail.error,
+      msg: "验证码（演示模式）：" + code
+    });
+  } catch (e) {
+    return fail("发送验证码失败：" + friendlyDbError(e));
+  }
+}
+
+/** 校验并作废一个验证码 */
+async function consumeCode(email, code, purpose) {
+  const target = normEmail(email);
+  code = String(code || "").trim();
+  if (!/^\d{6}$/.test(code)) return { ok: false, msg: "请输入 6 位数字验证码" };
+  const rows = await dbSelect("verify_codes", [{ col: "target", val: target }, { col: "code", val: code }],
+    { order: "created_at", asc: false, limit: 1 });
+  const rec = rows[0];
+  if (!rec) return { ok: false, msg: "验证码不正确，请重新获取" };
+  if (Number(rec.expires_at) < Date.now()) return { ok: false, msg: "验证码已过期，请重新获取" };
+  try { await dbDelete("verify_codes", rec.id); } catch (e) { /* 删不掉也不影响注册 */ }
+  return { ok: true, purpose: rec.purpose };
+}
+
 async function register(payload) {
   const nickname = String(payload.nickname || "").trim();
+  const email = normEmail(payload.email);
   const phone = String(payload.phone || "").trim();
   const password = String(payload.password || "");
   if (nickname.length < 2 || nickname.length > 12) return fail("昵称需要 2-12 个字");
-  if (!/^1[3-9]\d{9}$/.test(phone)) return fail("请输入正确的 11 位手机号");
+  if (!EMAIL_RE.test(email)) return fail("请输入正确的邮箱地址");
   if (password.length < 6) return fail("密码至少 6 位");
   if (payload.confirm !== undefined && password !== String(payload.confirm)) return fail("两次输入的密码不一致");
 
-  const exists = await dbSelectOne("users", [{ col: "phone", val: phone }]);
-  if (exists) return fail("这个手机号已经注册过了");
+  let codeResult;
+  try {
+    codeResult = await consumeCode(email, payload.code, "register");
+  } catch (e) {
+    return fail("验证失败：" + friendlyDbError(e));
+  }
+  if (!codeResult.ok) return fail(codeResult.msg);
 
-  const ph = hashPassword(password);
-  const id = newId("u");
-  await dbInsert("users", {
-    id: id, phone: phone, username: phone, nickname: nickname,
-    salt: ph.salt, hash: ph.hash, role: "user", intro: "",
-    favorites: [], post_favorites: [], my_ingredients: [],
-    created_at: new Date().toISOString()
-  });
-  const newToken = await createSession(id);
-  const user = await dbSelectOne("users", [{ col: "id", val: id }]);
-  return ok({ token: newToken, user: publicUser(user) });
+  try {
+    const exists = await dbSelectOne("users", [{ col: "email", val: email }]);
+    if (exists) return fail("这个邮箱已经注册过了，直接登录就行");
+
+    const ph = hashPassword(password);
+    const id = newId("u");
+    await dbInsert("users", {
+      id: id, email: email, phone: phone, username: email, nickname: nickname,
+      salt: ph.salt, hash: ph.hash, role: "user", intro: "",
+      favorites: [], post_favorites: [], my_ingredients: [],
+      created_at: new Date().toISOString()
+    });
+    const newToken = await createSession(id);
+    const user = await dbSelectOne("users", [{ col: "id", val: id }]);
+    return ok({ token: newToken, user: publicUser(user) });
+  } catch (e) {
+    return fail("注册失败：" + friendlyDbError(e));
+  }
 }
 
 async function login(payload) {
   const account = String(payload.account || "").trim();
+  const lower = account.toLowerCase();
   const password = String(payload.password || "");
+  const isEmail = account.indexOf("@") >= 0;
   const isPhone = /^1[3-9]\d{9}$/.test(account);
-  const user = await dbSelectOne("users", [{ col: isPhone ? "phone" : "username", val: account }]);
+  let user = null;
+  try {
+    if (isEmail) user = await dbSelectOne("users", [{ col: "email", val: lower }]);
+    if (!user && isPhone) user = await dbSelectOne("users", [{ col: "phone", val: account }]);
+    if (!user) user = await dbSelectOne("users", [{ col: "username", val: account }]);
+    if (!user && isEmail) user = await dbSelectOne("users", [{ col: "username", val: lower }]);
+  } catch (e) {
+    return fail("登录失败：" + friendlyDbError(e));
+  }
   if (!user || !checkPassword(user, password)) {
-    return fail(isPhone ? "手机号或密码不正确" : "账号或密码不正确");
+    return fail(isEmail ? "邮箱或密码不正确" : (isPhone ? "手机号或密码不正确" : "账号或密码不正确"));
   }
   const token = await createSession(user.id);
   return ok({ token: token, user: publicUser(user) });
@@ -555,7 +763,7 @@ async function adminUsers(payload, token, me) {
   const rows = await dbSelect("users", [], { order: "created_at" });
   return ok({
     users: rows.map(function (u) {
-      return { id: u.id, phone: u.phone, username: u.username, nickname: u.nickname, role: u.role, intro: u.intro, created_at: u.created_at };
+      return { id: u.id, email: u.email || "", phone: u.phone || "", username: u.username, nickname: u.nickname, role: u.role, intro: u.intro, created_at: u.created_at };
     })
   });
 }
@@ -567,6 +775,7 @@ async function adminUsers(payload, token, me) {
 
 const HANDLERS = {
   bootstrap: (p, t) => bootstrap(t),
+  sendCode: sendCode,
   register: register,
   login: (p) => login(p),
   changePassword: changePassword,
@@ -617,15 +826,29 @@ async function handle(action, payload, token) {
       out.selectUsers = {
         count: rows.length,
         rows: rows.map(function (u) {
-          return { id: u.id, phone: u.phone, role: u.role, hasHash: !!u.hash, hashLen: (u.hash || "").length };
+          return { id: u.id, email: u.email || "", phone: u.phone || "", role: u.role, hasHash: !!u.hash, hashLen: (u.hash || "").length };
         })
       };
     } catch (e) { out.selectUsers = "错误：" + e.message; }
 
     try {
-      const one = await dbSelectOne("users", [{ col: "phone", val: "17345930612" }]);
-      out.findByPhone = one ? { id: one.id, role: one.role, hashLen: (one.hash || "").length } : "没找到这个手机号";
-    } catch (e) { out.findByPhone = "错误：" + e.message; }
+      const one = await dbSelectOne("users", [{ col: "email", val: "3246713776@qq.com" }]);
+      out.findByEmail = one ? { id: one.id, role: one.role, hashLen: (one.hash || "").length } : "没找到这个邮箱，先执行升级 SQL";
+    } catch (e) { out.findByEmail = "错误：" + e.message; }
+
+    try {
+      const sid0 = "debug-vc-" + Date.now();
+      await dbInsert("verify_codes", {
+        id: sid0, target: "debug@example.com", code: "000000",
+        purpose: "register", expires_at: Date.now() + 60000, created_at: new Date().toISOString()
+      });
+      await dbDelete("verify_codes", sid0);
+      out.verifyCodes = "验证码表可读可写";
+    } catch (e) { out.verifyCodes = "错误：" + e.message; }
+
+    out.smtp = (process.env.SMTP_USER && process.env.SMTP_PASS)
+      ? "已配置（" + process.env.SMTP_USER + "）"
+      : "未配置，验证码走演示模式（直接显示在页面上）";
 
     try {
       const sid = "debug-" + Date.now();
