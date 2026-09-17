@@ -1,0 +1,2 @@
+{"_id":"c-seed-1","targetType":"recipe","targetId":"gin-tonic","userId":"u-demo","username":"demo","nickname":"爱喝莫吉托的人","content":"按这个比例做了，汤力水一定要冰镇，差别很大！","parentId":null,"likes":["u-admin"],"pinned":true,"hidden":false,"createdAt":"2026-09-16T04:49:08.018Z"}
+{"_id":"c-seed-6","targetType":"recipe","targetId":"mojito","userId":"u-admin","username":"17345930612","nickname":"站长","content":"薄荷千万别捣太狠，会发苦，轻压两下就够了。","parentId":null,"likes":["u-demo"],"pinned":false,"hidden":false,"createdAt":"2026-09-17T02:49:08.018Z"}

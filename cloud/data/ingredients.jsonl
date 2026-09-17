@@ -1,0 +1,192 @@
+{"_id":"gin","name":"金酒（琴酒）","cat":"基酒","emoji":"🌿","aka":"Gin","alias":"琴酒 / 毡酒 / 杜松子酒 / Geneva","isBasic":false,"py":"jinjiuqinjiu","initial":"J","createdAt":"2026-09-17T10:49:08.016Z"}
+{"_id":"vodka","name":"伏特加","cat":"基酒","emoji":"💧","aka":"Vodka","alias":"伏特卡 / 俄得克 / 火酒","isBasic":false,"py":"futejia","initial":"F","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"white-rum","name":"白朗姆酒","cat":"基酒","emoji":"🏝️","aka":"White Rum","alias":"朗姆酒 / 兰姆酒 / 白朗姆 / 蔗酒","isBasic":false,"py":"bailangmujiu","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"dark-rum","name":"黑朗姆酒","cat":"基酒","emoji":"🪵","aka":"Dark Rum","alias":"黑朗姆 / 深色朗姆酒","isBasic":false,"py":"heilangmujiu","initial":"H","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"tequila","name":"龙舌兰","cat":"基酒","emoji":"🌵","aka":"Tequila","alias":"特基拉 / 龙舌兰酒","isBasic":false,"py":"longshelan","initial":"L","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"mezcal","name":"梅斯卡尔","cat":"基酒","emoji":"🔥","aka":"Mezcal","alias":"龙舌兰酒 / 麦斯卡尔","isBasic":false,"py":"meisikaer","initial":"M","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"bourbon","name":"波本威士忌","cat":"基酒","emoji":"🥃","aka":"Bourbon","alias":"波本 / 波本酒","isBasic":false,"py":"bobenweishiji","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"rye","name":"黑麦威士忌","cat":"基酒","emoji":"🌾","aka":"Rye Whiskey","alias":"裸麦威士忌 / 黑麦酒","isBasic":false,"py":"heimaiweishiji","initial":"H","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"scotch","name":"苏格兰威士忌","cat":"基酒","emoji":"🏴","aka":"Scotch","alias":"苏威 / 苏格兰酒 / 威士忌","isBasic":false,"py":"sugelanweishiji","initial":"S","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"brandy","name":"白兰地","cat":"基酒","emoji":"🍇","aka":"Brandy","alias":"白兰地酒","isBasic":false,"py":"bailandi","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"cognac","name":"干邑","cat":"基酒","emoji":"🥂","aka":"Cognac","alias":"干邑白兰地 / 科涅克","isBasic":false,"py":"ganyi","initial":"G","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"cachaca","name":"卡莎萨","cat":"基酒","emoji":"🇧🇷","aka":"Cachaça","alias":"","isBasic":false,"py":"kashasa","initial":"K","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"sparkling","name":"气泡酒 / 香槟","cat":"基酒","emoji":"🍾","aka":"Sparkling Wine","alias":"香槟 / 起泡酒 / 气泡酒","isBasic":false,"py":"qipaojiuxiangbin","initial":"Q","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"sake","name":"清酒","cat":"基酒","emoji":"🍶","aka":"Sake","alias":"日本酒 / 清酒","isBasic":false,"py":"qingjiu","initial":"Q","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"soju","name":"烧酒","cat":"基酒","emoji":"🍶","aka":"Soju","alias":"","isBasic":false,"py":"shaojiu","initial":"S","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"baijiu","name":"白酒","cat":"基酒","emoji":"🏮","aka":"Baijiu","alias":"高粱酒 / 中国白酒","isBasic":false,"py":"baijiu","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"golden-rum","name":"金朗姆酒","cat":"基酒","emoji":"🥇","aka":"Golden Rum","alias":"","isBasic":false,"py":"jinlangmujiu","initial":"J","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"aged-rum","name":"陈年朗姆酒","cat":"基酒","emoji":"🛢️","aka":"Aged Rum","alias":"","isBasic":false,"py":"chennianlangmujiu","initial":"C","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"overproof-rum","name":"高度朗姆 151","cat":"基酒","emoji":"🔥","aka":"Overproof Rum","alias":"","isBasic":false,"py":"gaodulangmu151","initial":"G","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"pisco","name":"皮斯科","cat":"基酒","emoji":"🍇","aka":"Pisco","alias":"","isBasic":false,"py":"pisike","initial":"P","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"armagnac","name":"雅文邑","cat":"基酒","emoji":"🍇","aka":"Armagnac","alias":"","isBasic":false,"py":"yawenyi","initial":"Y","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"canadian-whisky","name":"加拿大威士忌","cat":"基酒","emoji":"🍁","aka":"Canadian Whisky","alias":"","isBasic":false,"py":"jianadaweishiji","initial":"J","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"japanese-whisky","name":"日本威士忌","cat":"基酒","emoji":"🗾","aka":"Japanese Whisky","alias":"","isBasic":false,"py":"ribenweishiji","initial":"R","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"irish-whiskey","name":"爱尔兰威士忌","cat":"基酒","emoji":"🍀","aka":"Irish Whiskey","alias":"","isBasic":false,"py":"aierlanweishiji","initial":"A","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"sherry","name":"雪莉酒","cat":"基酒","emoji":"🍷","aka":"Sherry","alias":"","isBasic":false,"py":"xuelijiu","initial":"X","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"port","name":"波特酒","cat":"基酒","emoji":"🍷","aka":"Port","alias":"","isBasic":false,"py":"botejiu","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"red-wine","name":"红葡萄酒","cat":"基酒","emoji":"🍷","aka":"Red Wine","alias":"","isBasic":false,"py":"hongputaojiu","initial":"H","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"white-wine","name":"白葡萄酒","cat":"基酒","emoji":"🥂","aka":"White Wine","alias":"","isBasic":false,"py":"baiputaojiu","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"plum-wine","name":"梅酒","cat":"基酒","emoji":"🫐","aka":"Umeshu","alias":"","isBasic":false,"py":"meijiu","initial":"M","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"rice-wine","name":"黄酒 / 米酒","cat":"基酒","emoji":"🍚","aka":"Rice Wine","alias":"","isBasic":false,"py":"huangjiumijiu","initial":"H","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"applejack","name":"苹果白兰地","cat":"基酒","emoji":"🍎","aka":"Applejack","alias":"","isBasic":false,"py":"pingguobailandi","initial":"P","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"calvados","name":"卡尔瓦多斯","cat":"基酒","emoji":"🍏","aka":"Calvados / 苹果白兰地","alias":"","isBasic":false,"py":"kaerwaduosi","initial":"K","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"tennessee-whiskey","name":"田纳西威士忌","cat":"基酒","emoji":"🎸","aka":"Tennessee Whiskey","alias":"","isBasic":false,"py":"tiannaxiweishiji","initial":"T","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"single-malt","name":"单一麦芽威士忌","cat":"基酒","emoji":"🥃","aka":"Single Malt","alias":"","isBasic":false,"py":"danyimaiyaweishiji","initial":"D","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"reposado","name":"陈酿龙舌兰","cat":"基酒","emoji":"🌵","aka":"Reposado / 微陈龙舌兰","alias":"","isBasic":false,"py":"chennianglongshelan","initial":"C","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"anejo","name":"陈年龙舌兰","cat":"基酒","emoji":"🛢️","aka":"Añejo","alias":"","isBasic":false,"py":"chennianlongshelan","initial":"C","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"madeira","name":"马德拉酒","cat":"基酒","emoji":"🍷","aka":"Madeira","alias":"","isBasic":false,"py":"madelajiu","initial":"M","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"cointreau","name":"君度橙酒","cat":"利口酒","emoji":"🍊","aka":"Cointreau","alias":"柑香酒 / 橙皮甜酒","isBasic":false,"py":"junduchengjiu","initial":"J","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"triple-sec","name":"白橙皮利口酒","cat":"利口酒","emoji":"🍊","aka":"Triple Sec","alias":"三重橙 / 白橙皮酒","isBasic":false,"py":"baichengpilikoujiu","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"campari","name":"金巴利","cat":"利口酒","emoji":"❤️","aka":"Campari","alias":"金巴丽 / 康帕利","isBasic":false,"py":"jinbali","initial":"J","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"aperol","name":"阿佩罗","cat":"利口酒","emoji":"🧡","aka":"Aperol","alias":"艾普罗 / 开胃酒","isBasic":false,"py":"apeiluo","initial":"A","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"sweet-vermouth","name":"甜味美思","cat":"利口酒","emoji":"🍷","aka":"Sweet Vermouth","alias":"甜苦艾酒 / 红味美思 / 意大利味美思","isBasic":false,"py":"tianweimeisi","initial":"T","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"dry-vermouth","name":"干味美思","cat":"利口酒","emoji":"🥂","aka":"Dry Vermouth","alias":"干苦艾酒 / 白味美思 / 法式味美思","isBasic":false,"py":"ganweimeisi","initial":"G","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"kahlua","name":"咖啡利口酒","cat":"利口酒","emoji":"☕","aka":"Kahlúa","alias":"甘露 / 卡鲁哇 / 咖啡香甜酒","isBasic":false,"py":"kafeilikoujiu","initial":"K","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"baileys","name":"百利甜酒","cat":"利口酒","emoji":"🥛","aka":"Baileys","alias":"百利甜 / 爱尔兰奶油酒","isBasic":false,"py":"bailitianjiu","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"amaretto","name":"杏仁利口酒","cat":"利口酒","emoji":"🌰","aka":"Amaretto","alias":"阿玛雷托 / 杏仁酒","isBasic":false,"py":"xingrenlikoujiu","initial":"X","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"blue-curacao","name":"蓝橙利口酒","cat":"利口酒","emoji":"💙","aka":"Blue Curaçao","alias":"蓝橙酒 / 蓝柑香酒","isBasic":false,"py":"lanchenglikoujiu","initial":"L","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"peach","name":"蜜桃利口酒","cat":"利口酒","emoji":"🍑","aka":"Peach Schnapps","alias":"","isBasic":false,"py":"mitaolikoujiu","initial":"M","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"cacao-white","name":"白可可利口酒","cat":"利口酒","emoji":"🍫","aka":"Crème de Cacao","alias":"","isBasic":false,"py":"baikekelikoujiu","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"st-germain","name":"接骨木花利口酒","cat":"利口酒","emoji":"🌸","aka":"St-Germain","alias":"圣杰曼 / 接骨木花酒","isBasic":false,"py":"jiegumuhualikoujiu","initial":"J","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"midori","name":"蜜多丽蜜瓜酒","cat":"利口酒","emoji":"🍈","aka":"Midori","alias":"蜜瓜酒 / 美多丽","isBasic":false,"py":"miduolimiguajiu","initial":"M","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"malibu","name":"椰香朗姆酒","cat":"利口酒","emoji":"🥥","aka":"Malibu","alias":"马利宝 / 椰香朗姆","isBasic":false,"py":"yexianglangmujiu","initial":"Y","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"absinthe","name":"苦艾酒","cat":"利口酒","emoji":"🧚","aka":"Absinthe","alias":"苦艾酒 / 艾碧斯 / 绿仙子","isBasic":false,"py":"kuaijiu","initial":"K","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"grand-marnier","name":"柑曼怡","cat":"利口酒","emoji":"🍊","aka":"Grand Marnier","alias":"","isBasic":false,"py":"ganmanyi","initial":"G","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"maraschino","name":"黑樱桃利口酒","cat":"利口酒","emoji":"🍒","aka":"Maraschino","alias":"","isBasic":false,"py":"heiyingtaolikoujiu","initial":"H","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"chambord","name":"香波黑莓利口酒","cat":"利口酒","emoji":"🫐","aka":"Chambord","alias":"","isBasic":false,"py":"xiangboheimeilikoujiu","initial":"X","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"chartreuse","name":"荨麻酒（绿）","cat":"利口酒","emoji":"🌿","aka":"Chartreuse","alias":"","isBasic":false,"py":"qianmajiul","initial":"Q","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"benedictine","name":"廊酒","cat":"利口酒","emoji":"🏛️","aka":"Bénédictine","alias":"","isBasic":false,"py":"langjiu","initial":"L","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"drambuie","name":"杜林标","cat":"利口酒","emoji":"🥃","aka":"Drambuie","alias":"","isBasic":false,"py":"dulinbiao","initial":"D","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"frangelico","name":"榛子利口酒","cat":"利口酒","emoji":"🌰","aka":"Frangelico","alias":"","isBasic":false,"py":"zhenzilikoujiu","initial":"Z","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"banana-liqueur","name":"香蕉利口酒","cat":"利口酒","emoji":"🍌","aka":"Crème de Banane","alias":"","isBasic":false,"py":"xiangjiaolikoujiu","initial":"X","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"vanilla-liqueur","name":"香草利口酒","cat":"利口酒","emoji":"🍦","aka":"Vanilla Liqueur","alias":"","isBasic":false,"py":"xiangcaolikoujiu","initial":"X","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"galliano","name":"加利安奴","cat":"利口酒","emoji":"🍮","aka":"Galliano","alias":"","isBasic":false,"py":"jialiannu","initial":"J","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"creme-de-menthe","name":"薄荷利口酒","cat":"利口酒","emoji":"🌱","aka":"Crème de Menthe","alias":"","isBasic":false,"py":"bohelikoujiu","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"creme-de-cacao-dark","name":"深色可可利口酒","cat":"利口酒","emoji":"🍫","aka":"Dark Crème de Cacao","alias":"","isBasic":false,"py":"shensekekelikoujiu","initial":"S","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"creme-de-violette","name":"紫罗兰利口酒","cat":"利口酒","emoji":"💜","aka":"Crème de Violette","alias":"","isBasic":false,"py":"ziluolanlikoujiu","initial":"Z","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"pimms","name":"皮姆酒","cat":"利口酒","emoji":"🍓","aka":"Pimm's","alias":"","isBasic":false,"py":"pimujiu","initial":"P","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"limoncello","name":"柠檬切罗","cat":"利口酒","emoji":"🍋","aka":"Limoncello","alias":"","isBasic":false,"py":"ningmengqieluo","initial":"N","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"lillet","name":"利莱白","cat":"利口酒","emoji":"🍾","aka":"Lillet Blanc","alias":"","isBasic":false,"py":"lilaibai","initial":"L","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"amaro","name":"阿玛罗苦酒","cat":"利口酒","emoji":"🥀","aka":"Amaro","alias":"","isBasic":false,"py":"amaluokujiu","initial":"A","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"creme-de-cassis","name":"黑加仑利口酒","cat":"利口酒","emoji":"🫐","aka":"Crème de Cassis / 黑醋栗","alias":"黑醋栗利口酒 / 卡西斯","isBasic":false,"py":"heijialunlikoujiu","initial":"H","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"blueberry-liqueur","name":"蓝莓利口酒","cat":"利口酒","emoji":"🫐","aka":"Blueberry Liqueur","alias":"","isBasic":false,"py":"lanmeilikoujiu","initial":"L","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"lychee-liqueur","name":"荔枝利口酒","cat":"利口酒","emoji":"🫒","aka":"Lychee Liqueur","alias":"","isBasic":false,"py":"lizhilikoujiu","initial":"L","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"rose-liqueur","name":"玫瑰利口酒","cat":"利口酒","emoji":"🌹","aka":"Rose Liqueur","alias":"","isBasic":false,"py":"meiguilikoujiu","initial":"M","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"lime-juice","name":"青柠汁","cat":"果汁与饮料","emoji":"🟢","aka":"Lime Juice","alias":"莱姆汁","isBasic":false,"py":"qingningzhi","initial":"Q","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"lemon-juice","name":"柠檬汁","cat":"果汁与饮料","emoji":"🟡","aka":"Lemon Juice","alias":"","isBasic":false,"py":"ningmengzhi","initial":"N","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"orange-juice","name":"橙汁","cat":"果汁与饮料","emoji":"🍊","aka":"Orange Juice","alias":"","isBasic":false,"py":"chengzhi","initial":"C","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"pineapple-juice","name":"菠萝汁","cat":"果汁与饮料","emoji":"🍍","aka":"Pineapple Juice","alias":"","isBasic":false,"py":"boluozhi","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"cranberry-juice","name":"蔓越莓汁","cat":"果汁与饮料","emoji":"🍒","aka":"Cranberry Juice","alias":"","isBasic":false,"py":"manyuemeizhi","initial":"M","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"grapefruit-juice","name":"西柚汁","cat":"果汁与饮料","emoji":"🍊","aka":"Grapefruit Juice","alias":"","isBasic":false,"py":"xiyouzhi","initial":"X","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"tomato-juice","name":"番茄汁","cat":"果汁与饮料","emoji":"🍅","aka":"Tomato Juice","alias":"","isBasic":false,"py":"fanqiezhi","initial":"F","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"coconut-cream","name":"椰浆","cat":"果汁与饮料","emoji":"🥥","aka":"Coconut Cream","alias":"","isBasic":false,"py":"yejiang","initial":"Y","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"tonic","name":"汤力水","cat":"果汁与饮料","emoji":"🫧","aka":"Tonic Water","alias":"通宁水 / 汤力汽水 / 奎宁水","isBasic":false,"py":"tanglishui","initial":"T","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"soda-water","name":"苏打水","cat":"果汁与饮料","emoji":"💦","aka":"Soda Water","alias":"苏打汽水 / 气泡水","isBasic":false,"py":"sudashui","initial":"S","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"cola","name":"可乐","cat":"果汁与饮料","emoji":"🥤","aka":"Cola","alias":"","isBasic":false,"py":"kele","initial":"K","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"sprite","name":"雪碧 / 七喜","cat":"果汁与饮料","emoji":"🥤","aka":"Sprite","alias":"","isBasic":false,"py":"xuebiqixi","initial":"X","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"ginger-beer","name":"姜汁啤酒","cat":"果汁与饮料","emoji":"🫚","aka":"Ginger Beer","alias":"","isBasic":false,"py":"jiangzhipijiu","initial":"J","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"espresso","name":"浓缩咖啡","cat":"果汁与饮料","emoji":"☕","aka":"Espresso","alias":"","isBasic":false,"py":"nongsuokafei","initial":"N","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"milk","name":"牛奶","cat":"果汁与饮料","emoji":"🥛","aka":"Milk","alias":"牛乳","isBasic":false,"py":"niunai","initial":"N","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"cream","name":"淡奶油","cat":"果汁与饮料","emoji":"🍦","aka":"Cream","alias":"鲜奶油 / 淡奶油","isBasic":false,"py":"dannaiyou","initial":"D","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"condensed-milk","name":"炼乳","cat":"果汁与饮料","emoji":"🥛","aka":"Condensed Milk","alias":"","isBasic":false,"py":"lianru","initial":"L","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"coconut-water","name":"椰子水","cat":"果汁与饮料","emoji":"🥥","aka":"Coconut Water","alias":"","isBasic":false,"py":"yezishui","initial":"Y","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"passionfruit-juice","name":"百香果汁","cat":"果汁与饮料","emoji":"🟠","aka":"Passion Fruit Juice","alias":"","isBasic":false,"py":"baixiangguozhi","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"mango-juice","name":"芒果汁","cat":"果汁与饮料","emoji":"🥭","aka":"Mango Juice","alias":"","isBasic":false,"py":"mangguozhi","initial":"M","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"watermelon-juice","name":"西瓜汁","cat":"果汁与饮料","emoji":"🍉","aka":"Watermelon Juice","alias":"","isBasic":false,"py":"xiguazhi","initial":"X","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"apple-juice","name":"苹果汁","cat":"果汁与饮料","emoji":"🍎","aka":"Apple Juice","alias":"","isBasic":false,"py":"pingguozhi","initial":"P","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"grape-juice","name":"葡萄汁","cat":"果汁与饮料","emoji":"🍇","aka":"Grape Juice","alias":"","isBasic":false,"py":"putaozhi","initial":"P","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"peach-juice","name":"桃子汁","cat":"果汁与饮料","emoji":"🍑","aka":"Peach Juice","alias":"","isBasic":false,"py":"taozizhi","initial":"T","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"ginger-ale","name":"干姜水","cat":"果汁与饮料","emoji":"🫚","aka":"Ginger Ale","alias":"","isBasic":false,"py":"ganjiangshui","initial":"G","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"bitter-lemon","name":"苦柠水","cat":"果汁与饮料","emoji":"🍋","aka":"Bitter Lemon","alias":"","isBasic":false,"py":"kuningshui","initial":"K","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"sparkling-water","name":"气泡水","cat":"果汁与饮料","emoji":"🫧","aka":"Sparkling Water","alias":"","isBasic":false,"py":"qipaoshui","initial":"Q","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"beer","name":"啤酒","cat":"果汁与饮料","emoji":"🍺","aka":"Beer","alias":"","isBasic":false,"py":"pijiu","initial":"P","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"pomegranate-juice","name":"石榴汁","cat":"果汁与饮料","emoji":"🔴","aka":"Pomegranate Juice","alias":"","isBasic":false,"py":"shiliuzhi","initial":"S","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"pear-juice","name":"梨汁","cat":"果汁与饮料","emoji":"🍐","aka":"Pear Juice","alias":"","isBasic":false,"py":"lizhi","initial":"L","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"lemonade","name":"柠檬水","cat":"果汁与饮料","emoji":"🍋","aka":"Lemonade","alias":"柠檬汽水 / 柠檬水饮料","isBasic":false,"py":"ningmengshui","initial":"N","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"energy-drink","name":"能量饮料","cat":"果汁与饮料","emoji":"⚡","aka":"Energy Drink / 红牛","alias":"红牛 / 提神饮料","isBasic":false,"py":"nengliangyinliao","initial":"N","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"iced-tea","name":"冰红茶","cat":"果汁与饮料","emoji":"🧋","aka":"Iced Tea","alias":"","isBasic":false,"py":"binghongcha","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"cream-soda","name":"奶油苏打","cat":"果汁与饮料","emoji":"🥤","aka":"Cream Soda","alias":"","isBasic":false,"py":"naiyousuda","initial":"N","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"simple-syrup","name":"糖浆","cat":"糖浆与调味","emoji":"🍯","aka":"Simple Syrup","alias":"糖水 / 单糖浆","isBasic":false,"py":"tangjiang","initial":"T","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"grenadine","name":"红石榴糖浆","cat":"糖浆与调味","emoji":"🔴","aka":"Grenadine","alias":"石榴糖浆 / 红石榴汁","isBasic":false,"py":"hongshiliutangjiang","initial":"H","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"orgeat","name":"杏仁糖浆","cat":"糖浆与调味","emoji":"🌰","aka":"Orgeat","alias":"","isBasic":false,"py":"xingrentangjiang","initial":"X","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"honey","name":"蜂蜜","cat":"糖浆与调味","emoji":"🐝","aka":"Honey","alias":"","isBasic":false,"py":"fengmi","initial":"F","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"agave","name":"龙舌兰糖浆","cat":"糖浆与调味","emoji":"🌵","aka":"Agave Syrup","alias":"","isBasic":false,"py":"longshelantangjiang","initial":"L","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"angostura","name":"安格仕苦精","cat":"糖浆与调味","emoji":"🧪","aka":"Angostura Bitters","alias":"安高天娜 / 安古斯图拉 / 苦精","isBasic":false,"py":"angeshikujing","initial":"A","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"salt","name":"盐","cat":"糖浆与调味","emoji":"🧂","aka":"Salt","alias":"","isBasic":false,"py":"yan","initial":"Y","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"sugar","name":"白砂糖","cat":"糖浆与调味","emoji":"🍬","aka":"Sugar","alias":"","isBasic":false,"py":"baishatang","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"pepper","name":"黑胡椒","cat":"糖浆与调味","emoji":"⚫","aka":"Pepper","alias":"","isBasic":false,"py":"heihujiao","initial":"H","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"worcestershire","name":"伍斯特酱","cat":"糖浆与调味","emoji":"🧴","aka":"Worcestershire","alias":"","isBasic":false,"py":"wusitejiang","initial":"W","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"tabasco","name":"塔巴斯科辣酱","cat":"糖浆与调味","emoji":"🌶️","aka":"Tabasco","alias":"","isBasic":false,"py":"tabasikelajiang","initial":"T","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"egg-white","name":"蛋清","cat":"糖浆与调味","emoji":"🥚","aka":"Egg White","alias":"蛋白","isBasic":false,"py":"danqing","initial":"D","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"egg-yolk","name":"蛋黄","cat":"糖浆与调味","emoji":"🍳","aka":"Egg Yolk","alias":"","isBasic":false,"py":"danhuang","initial":"D","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"vanilla-syrup","name":"香草糖浆","cat":"糖浆与调味","emoji":"🍦","aka":"Vanilla Syrup","alias":"","isBasic":false,"py":"xiangcaotangjiang","initial":"X","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"ginger-syrup","name":"姜糖浆","cat":"糖浆与调味","emoji":"🫚","aka":"Ginger Syrup","alias":"","isBasic":false,"py":"jiangtangjiang","initial":"J","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"cinnamon-syrup","name":"肉桂糖浆","cat":"糖浆与调味","emoji":"🪵","aka":"Cinnamon Syrup","alias":"","isBasic":false,"py":"rouguitangjiang","initial":"R","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"caramel-syrup","name":"焦糖糖浆","cat":"糖浆与调味","emoji":"🍯","aka":"Caramel Syrup","alias":"","isBasic":false,"py":"jiaotangtangjiang","initial":"J","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"rose-syrup","name":"玫瑰糖浆","cat":"糖浆与调味","emoji":"🌹","aka":"Rose Syrup","alias":"","isBasic":false,"py":"meiguitangjiang","initial":"M","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"elderflower-syrup","name":"接骨木花糖浆","cat":"糖浆与调味","emoji":"🌸","aka":"Elderflower Syrup","alias":"","isBasic":false,"py":"jiegumuhuatangjiang","initial":"J","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"passionfruit-syrup","name":"百香果糖浆","cat":"糖浆与调味","emoji":"🟠","aka":"Passion Fruit Syrup","alias":"","isBasic":false,"py":"baixiangguotangjiang","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"lychee-syrup","name":"荔枝糖浆","cat":"糖浆与调味","emoji":"🫒","aka":"Lychee Syrup","alias":"","isBasic":false,"py":"lizhitangjiang","initial":"L","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"coconut-syrup","name":"椰子糖浆","cat":"糖浆与调味","emoji":"🥥","aka":"Coconut Syrup","alias":"","isBasic":false,"py":"yezitangjiang","initial":"Y","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"raspberry-syrup","name":"覆盆子糖浆","cat":"糖浆与调味","emoji":"🫐","aka":"Raspberry Syrup","alias":"","isBasic":false,"py":"fupenzitangjiang","initial":"F","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"orange-bitters","name":"橙味苦精","cat":"糖浆与调味","emoji":"🍊","aka":"Orange Bitters","alias":"","isBasic":false,"py":"chengweikujing","initial":"C","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"celery-bitters","name":"芹菜苦精","cat":"糖浆与调味","emoji":"🥬","aka":"Celery Bitters","alias":"","isBasic":false,"py":"qincaikujing","initial":"Q","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"cinnamon-powder","name":"肉桂粉","cat":"糖浆与调味","emoji":"🪵","aka":"Cinnamon","alias":"","isBasic":false,"py":"rouguifen","initial":"R","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"cocoa-powder","name":"可可粉","cat":"糖浆与调味","emoji":"🍫","aka":"Cocoa Powder","alias":"","isBasic":false,"py":"kekefen","initial":"K","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"vanilla-extract","name":"香草精","cat":"糖浆与调味","emoji":"🌼","aka":"Vanilla Extract","alias":"","isBasic":false,"py":"xiangcaojing","initial":"X","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"clove","name":"丁香","cat":"糖浆与调味","emoji":"🟤","aka":"Clove","alias":"","isBasic":false,"py":"dingxiang","initial":"D","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"chili","name":"辣椒","cat":"糖浆与调味","emoji":"🌶️","aka":"Chili","alias":"","isBasic":false,"py":"lajiao","initial":"L","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"maple-syrup","name":"枫糖浆","cat":"糖浆与调味","emoji":"🍁","aka":"Maple Syrup","alias":"","isBasic":false,"py":"fengtangjiang","initial":"F","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"chocolate-bitters","name":"巧克力苦精","cat":"糖浆与调味","emoji":"🍫","aka":"Chocolate Bitters","alias":"","isBasic":false,"py":"qiaokelikujing","initial":"Q","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"celery-salt","name":"芹菜盐","cat":"糖浆与调味","emoji":"🥬","aka":"Celery Salt","alias":"","isBasic":false,"py":"qincaiyan","initial":"Q","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"orange-blossom","name":"橙花水","cat":"糖浆与调味","emoji":"🌼","aka":"Orange Blossom Water","alias":"","isBasic":false,"py":"chenghuashui","initial":"C","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"lime","name":"青柠","cat":"新鲜水果","emoji":"🍋‍🟩","aka":"Lime","alias":"莱姆","isBasic":false,"py":"qingning","initial":"Q","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"lemon","name":"柠檬","cat":"新鲜水果","emoji":"🍋","aka":"Lemon","alias":"","isBasic":false,"py":"ningmeng","initial":"N","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"orange","name":"橙子","cat":"新鲜水果","emoji":"🍊","aka":"Orange","alias":"甜橙","isBasic":false,"py":"chengzi","initial":"C","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"grapefruit","name":"西柚","cat":"新鲜水果","emoji":"🍊","aka":"Grapefruit","alias":"葡萄柚","isBasic":false,"py":"xiyou","initial":"X","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"strawberry","name":"草莓","cat":"新鲜水果","emoji":"🍓","aka":"Strawberry","alias":"士多啤梨","isBasic":false,"py":"caomei","initial":"C","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"pineapple","name":"菠萝","cat":"新鲜水果","emoji":"🍍","aka":"Pineapple","alias":"凤梨","isBasic":false,"py":"boluo","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"cherry","name":"樱桃","cat":"新鲜水果","emoji":"🍒","aka":"Cherry","alias":"车厘子","isBasic":false,"py":"yingtao","initial":"Y","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"lychee","name":"荔枝","cat":"新鲜水果","emoji":"🫒","aka":"Lychee","alias":"","isBasic":false,"py":"lizhi","initial":"L","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"grape","name":"青提","cat":"新鲜水果","emoji":"🍇","aka":"Green Grape","alias":"","isBasic":false,"py":"qingti","initial":"Q","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"yuzu","name":"柚子 / 柚子汁","cat":"新鲜水果","emoji":"🍈","aka":"Yuzu","alias":"","isBasic":false,"py":"youziyouzizhi","initial":"Y","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"longan","name":"桂圆（龙眼）","cat":"新鲜水果","emoji":"🟤","aka":"Longan","alias":"","isBasic":false,"py":"guiyuanlongyan","initial":"G","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"passionfruit","name":"百香果","cat":"新鲜水果","emoji":"🟠","aka":"Passion Fruit","alias":"","isBasic":false,"py":"baixiangguo","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"mango","name":"芒果","cat":"新鲜水果","emoji":"🥭","aka":"Mango","alias":"","isBasic":false,"py":"mangguo","initial":"M","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"watermelon","name":"西瓜","cat":"新鲜水果","emoji":"🍉","aka":"Watermelon","alias":"","isBasic":false,"py":"xigua","initial":"X","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"apple","name":"苹果","cat":"新鲜水果","emoji":"🍎","aka":"Apple","alias":"","isBasic":false,"py":"pingguo","initial":"P","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"peach-fruit","name":"桃子","cat":"新鲜水果","emoji":"🍑","aka":"Peach","alias":"","isBasic":false,"py":"taozi","initial":"T","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"pear","name":"梨","cat":"新鲜水果","emoji":"🍐","aka":"Pear","alias":"","isBasic":false,"py":"li","initial":"L","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"blueberry","name":"蓝莓","cat":"新鲜水果","emoji":"🫐","aka":"Blueberry","alias":"","isBasic":false,"py":"lanmei","initial":"L","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"raspberry","name":"覆盆子","cat":"新鲜水果","emoji":"🍓","aka":"Raspberry","alias":"","isBasic":false,"py":"fupenzi","initial":"F","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"blackberry","name":"黑莓","cat":"新鲜水果","emoji":"🫐","aka":"Blackberry","alias":"","isBasic":false,"py":"heimei","initial":"H","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"fig","name":"无花果","cat":"新鲜水果","emoji":"🍈","aka":"Fig","alias":"","isBasic":false,"py":"wuhuaguo","initial":"W","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"guava","name":"番石榴","cat":"新鲜水果","emoji":"🍐","aka":"Guava","alias":"","isBasic":false,"py":"fanshiliu","initial":"F","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"kiwi","name":"猕猴桃","cat":"新鲜水果","emoji":"🥝","aka":"Kiwi","alias":"","isBasic":false,"py":"mihoutao","initial":"M","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"hawthorn","name":"山楂","cat":"新鲜水果","emoji":"🔴","aka":"Hawthorn","alias":"","isBasic":false,"py":"shanzha","initial":"S","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"goji","name":"枸杞","cat":"新鲜水果","emoji":"🔴","aka":"Goji Berry","alias":"","isBasic":false,"py":"gouqi","initial":"G","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"plum","name":"青梅 / 话梅","cat":"新鲜水果","emoji":"🟢","aka":"Green Plum","alias":"","isBasic":false,"py":"qingmeihuamei","initial":"Q","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"pomegranate","name":"石榴","cat":"新鲜水果","emoji":"🔴","aka":"Pomegranate","alias":"","isBasic":false,"py":"shiliu","initial":"S","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"grape-red","name":"葡萄","cat":"新鲜水果","emoji":"🍇","aka":"Grape / 巨峰","alias":"","isBasic":false,"py":"putao","initial":"P","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"banana","name":"香蕉","cat":"新鲜水果","emoji":"🍌","aka":"Banana","alias":"","isBasic":false,"py":"xiangjiao","initial":"X","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"mint","name":"薄荷","cat":"香草与装饰","emoji":"🌿","aka":"Mint","alias":"薄荷叶","isBasic":false,"py":"bohe","initial":"B","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"basil","name":"罗勒","cat":"香草与装饰","emoji":"🍃","aka":"Basil","alias":"","isBasic":false,"py":"luole","initial":"L","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"rosemary","name":"迷迭香","cat":"香草与装饰","emoji":"🌲","aka":"Rosemary","alias":"","isBasic":false,"py":"midiexiang","initial":"M","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"cucumber","name":"黄瓜","cat":"香草与装饰","emoji":"🥒","aka":"Cucumber","alias":"小黄瓜","isBasic":false,"py":"huanggua","initial":"H","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"ginger","name":"生姜","cat":"香草与装饰","emoji":"🫚","aka":"Ginger","alias":"","isBasic":false,"py":"shengjiang","initial":"S","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"olive","name":"橄榄","cat":"香草与装饰","emoji":"🫒","aka":"Olive","alias":"","isBasic":false,"py":"ganlan","initial":"G","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"celery","name":"西芹","cat":"香草与装饰","emoji":"🥬","aka":"Celery","alias":"","isBasic":false,"py":"xiqin","initial":"X","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"osmanthus","name":"桂花","cat":"香草与装饰","emoji":"🌼","aka":"Osmanthus","alias":"","isBasic":false,"py":"guihua","initial":"G","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"matcha","name":"抹茶粉","cat":"香草与装饰","emoji":"🍵","aka":"Matcha","alias":"","isBasic":false,"py":"mochafen","initial":"M","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"coffee-bean","name":"咖啡豆","cat":"香草与装饰","emoji":"🫘","aka":"Coffee Bean","alias":"","isBasic":false,"py":"kafeidou","initial":"K","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"lemon-grass","name":"柠檬草","cat":"香草与装饰","emoji":"🌾","aka":"Lemongrass","alias":"","isBasic":false,"py":"ningmengcao","initial":"N","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"shiso","name":"紫苏叶","cat":"香草与装饰","emoji":"🍃","aka":"Shiso","alias":"","isBasic":false,"py":"zisuye","initial":"Z","createdAt":"2026-09-17T10:49:08.017Z"}
+{"_id":"thyme","name":"百里香","cat":"香草与装饰","emoji":"🌿","aka":"Thyme","alias":"","isBasic":false,"py":"bailixiang","initial":"B","createdAt":"2026-09-17T10:49:08.018Z"}
+{"_id":"sage","name":"鼠尾草","cat":"香草与装饰","emoji":"🌿","aka":"Sage","alias":"","isBasic":false,"py":"shuweicao","initial":"S","createdAt":"2026-09-17T10:49:08.018Z"}
+{"_id":"cilantro","name":"香菜","cat":"香草与装饰","emoji":"🌿","aka":"Cilantro","alias":"","isBasic":false,"py":"xiangcai","initial":"X","createdAt":"2026-09-17T10:49:08.018Z"}
+{"_id":"star-anise","name":"八角","cat":"香草与装饰","emoji":"⭐","aka":"Star Anise","alias":"","isBasic":false,"py":"bajiao","initial":"B","createdAt":"2026-09-17T10:49:08.018Z"}
+{"_id":"cinnamon-stick","name":"肉桂棒","cat":"香草与装饰","emoji":"🪵","aka":"Cinnamon Stick","alias":"","isBasic":false,"py":"rouguibang","initial":"R","createdAt":"2026-09-17T10:49:08.018Z"}
+{"_id":"edible-flower","name":"食用花瓣","cat":"香草与装饰","emoji":"🌺","aka":"Edible Flower","alias":"","isBasic":false,"py":"shiyonghuaban","initial":"S","createdAt":"2026-09-17T10:49:08.018Z"}
+{"_id":"pearl-onion","name":"珍珠洋葱","cat":"香草与装饰","emoji":"🧅","aka":"Pearl Onion / Cocktail Onion","alias":"鸡尾酒洋葱 / 腌洋葱","isBasic":false,"py":"zhenzhuyangcong","initial":"Z","createdAt":"2026-09-17T10:49:08.018Z"}
+{"_id":"ice","name":"冰块","cat":"其他","emoji":"🧊","aka":"Ice","alias":"","isBasic":true,"py":"bingkuai","initial":"B","createdAt":"2026-09-17T10:49:08.018Z"}
+{"_id":"nutmeg","name":"肉豆蔻","cat":"其他","emoji":"🥜","aka":"Nutmeg","alias":"","isBasic":false,"py":"roudoukou","initial":"R","createdAt":"2026-09-17T10:49:08.018Z"}
