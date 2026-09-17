@@ -69,6 +69,7 @@
     u.postFavorites = u.postFavorites || [];
     u.myIngredients = u.myIngredients || [];
     u.nickname = u.nickname || u.username;
+    u.phone = u.phone || "";
     u.intro = u.intro || "";
     u.createdAt = u.createdAt || nowISO();
     return u;
@@ -136,7 +137,8 @@
       dailyOverride: null,
       settings: clone(window.SEED.settings),
       sessionUserId: null,
-      guestIngredients: []
+      guestIngredients: [],
+      smsCodes: {}
     };
     return s;
   }
@@ -183,6 +185,7 @@
       s.posts.forEach(function (p) { if (!Array.isArray(p.recipeTags)) p.recipeTags = []; });
     }
     if (typeof s.dailyOverride === "undefined") s.dailyOverride = null;
+    if (!s.smsCodes) s.smsCodes = {};
 
     // 站点更名：只有还停留在旧名字时才跟着改，你自己设过的名字不会被覆盖
     if (s.settings.siteName === "今晚喝什么") s.settings.siteName = "鸡尾酒法典";
@@ -205,6 +208,7 @@
           state.reports = state.reports || [];
           state.posts = state.posts || [];
           state.dailyOverride = state.dailyOverride || null;
+          state.smsCodes = state.smsCodes || {};
           state.posts.forEach(function (p) { if (!Array.isArray(p.recipeTags)) p.recipeTags = []; });
           state.users.forEach(normalizeUser);
           state.recipes.forEach(normalizeRecipe);
@@ -241,30 +245,106 @@
     return !!(u && u.role === "admin");
   }
 
-  function register(username, password) {
-    username = String(username || "").trim();
-    password = String(password || "");
-    if (username.length < 2) return { ok: false, msg: "用户名至少 2 个字符" };
+  /* ---------- 手机号 ---------- */
+
+  function isPhone(v) {
+    return /^1[3-9]\d{9}$/.test(String(v || "").trim());
+  }
+
+  /** 138****1234，展示用 */
+  function maskPhone(phone) {
+    var p = String(phone || "");
+    return isPhone(p) ? p.slice(0, 3) + "****" + p.slice(7) : p;
+  }
+
+  function phoneTaken(phone) {
+    phone = String(phone || "").trim();
+    return (state.users || []).some(function (u) { return u.phone === phone; });
+  }
+
+  /**
+   * 发送短信验证码。
+   * 现在没有后端，用「演示模式」：直接生成验证码并返回，界面会把它显示出来。
+   * 接入云函数后（后台填短信云函数地址），这里会自动改成调用真实短信服务。
+   */
+  function sendSmsCode(phone, purpose) {
+    phone = String(phone || "").trim();
+    if (!isPhone(phone)) return { ok: false, msg: "请输入正确的 11 位手机号" };
+    if (purpose === "register" && phoneTaken(phone)) return { ok: false, msg: "这个手机号已经注册过了，直接登录就行" };
+    var endpoint = state.settings.smsEndpoint || "";
+    var code = String(Math.floor(100000 + Math.random() * 900000));
+    state.smsCodes = state.smsCodes || {};
+    state.smsCodes[phone] = { code: code, at: Date.now(), purpose: purpose || "register" };
+    persist();
+    if (endpoint && typeof fetch === "function") {
+      fetch(endpoint, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phone, code: code, purpose: purpose || "register" })
+      }).catch(function () { /* 发失败也不影响演示流程 */ });
+      return { ok: true, mode: "sms", msg: "验证码已发送" };
+    }
+    // 演示模式：60 秒内有效
+    return { ok: true, mode: "demo", code: code, msg: "验证码（演示模式）：" + code };
+  }
+
+  function checkSmsCode(phone, code) {
+    phone = String(phone || "").trim();
+    code = String(code || "").trim();
+    var rec = (state.smsCodes || {})[phone];
+    if (!rec) return { ok: false, msg: "请先获取验证码" };
+    if (Date.now() - rec.at > 10 * 60 * 1000) return { ok: false, msg: "验证码已过期，请重新获取" };
+    if (rec.code !== code) return { ok: false, msg: "验证码不正确" };
+    return { ok: true };
+  }
+
+  /**
+   * 注册：昵称 + 手机号 + 验证码 + 密码。
+   * 昵称可以重复（不唯一），手机号唯一。
+   */
+  function register(data) {
+    data = data || {};
+    var nickname = String(data.nickname || "").trim();
+    var phone = String(data.phone || "").trim();
+    var password = String(data.password || "");
+    var confirm = String(data.confirm == null ? data.password : data.confirm);
+
+    if (nickname.length < 2) return { ok: false, msg: "昵称至少 2 个字" };
+    if (nickname.length > 12) return { ok: false, msg: "昵称最多 12 个字" };
+    if (!isPhone(phone)) return { ok: false, msg: "请输入正确的 11 位手机号" };
+    if (phoneTaken(phone)) return { ok: false, msg: "这个手机号已经注册过了" };
+    var sms = checkSmsCode(phone, data.code);
+    if (!sms.ok) return { ok: false, msg: sms.msg };
     if (password.length < 6) return { ok: false, msg: "密码至少 6 位" };
-    var exists = state.users.some(function (u) { return u.username.toLowerCase() === username.toLowerCase(); });
-    if (exists) return { ok: false, msg: "该用户名已被注册" };
+    if (data.confirm !== undefined && password !== confirm) return { ok: false, msg: "两次输入的密码不一致" };
+
     var user = {
-      id: newId("u"), username: username, password: password,
-      role: "user", nickname: username, intro: "",
-      createdAt: nowISO(), favorites: [], myIngredients: []
+      id: newId("u"),
+      phone: phone,
+      username: phone,          // 兼容旧逻辑（唯一标识）
+      nickname: nickname,
+      password: password,
+      role: "user", intro: "",
+      createdAt: nowISO(), favorites: [], postFavorites: [], myIngredients: []
     };
     state.users.push(user);
     state.sessionUserId = user.id;
+    delete state.smsCodes[phone];
     persist();
     return { ok: true, user: user };
   }
 
-  function login(username, password) {
-    username = String(username || "").trim().toLowerCase();
+  /** 登录：手机号 + 密码；管理员等老账号也可以用原来的用户名登录 */
+  function login(account, password) {
+    var key = String(account || "").trim();
+    var lower = key.toLowerCase();
     var user = state.users.filter(function (u) {
-      return u.username.toLowerCase() === username && u.password === String(password);
+      if (u.password !== String(password)) return false;
+      if (isPhone(key)) return u.phone === key;
+      return String(u.username || "").toLowerCase() === lower;
     })[0];
-    if (!user) return { ok: false, msg: "用户名或密码不正确" };
+    if (!user) {
+      return { ok: false, msg: isPhone(key) ? "手机号或密码不正确" : "账号或密码不正确" };
+    }
     state.sessionUserId = user.id;
     persist();
     return { ok: true, user: user };
@@ -1499,6 +1579,7 @@
       state.reports = state.reports || [];
       state.posts = state.posts || [];
       state.dailyOverride = state.dailyOverride || null;
+      state.smsCodes = state.smsCodes || {};
       state.users.forEach(normalizeUser);
       state.recipes.forEach(normalizeRecipe);
       state.sessionUserId = null;
@@ -1526,6 +1607,11 @@
     isAdmin: isAdmin,
     register: register,
     login: login,
+    sendSmsCode: sendSmsCode,
+    checkSmsCode: checkSmsCode,
+    isPhone: isPhone,
+    maskPhone: maskPhone,
+    phoneTaken: phoneTaken,
     logout: logout,
     users: function () { return state.users.slice(); },
     updateUser: updateUser,

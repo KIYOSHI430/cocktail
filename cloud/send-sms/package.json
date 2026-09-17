@@ -1,0 +1,10 @@
+{
+  "name": "send-sms",
+  "version": "1.0.0",
+  "description": "鸡尾酒法典 · 发送短信验证码云函数（腾讯云短信）",
+  "main": "index.js",
+  "dependencies": {
+    "tencentcloud-sdk-nodejs-sms": "^4.0.0"
+  },
+  "engines": { "node": ">=16" }
+}

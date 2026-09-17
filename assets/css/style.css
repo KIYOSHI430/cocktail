@@ -625,6 +625,14 @@ main { max-width: 1180px; margin: 0 auto; padding: 26px 22px 70px; }
   font-size: 10.5px; letter-spacing: .04em; color: var(--text-2);
   border: 1px solid var(--line); vertical-align: 1px;
 }
+
+/* 验证码一行：输入框 + 获取按钮 */
+.code-row { display: flex; gap: 10px; align-items: stretch; }
+.code-row .input { flex: 1; min-width: 0; }
+.code-row .btn { white-space: nowrap; }
+.code-row .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.field-hint { font-size: 12px; color: var(--text-2); line-height: 1.6; margin-top: 2px; }
+.field-hint b { color: var(--amber-2); font-weight: 600; letter-spacing: .1em; }
 .form-title { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 16px; }
 .form-title .mute-text { font-weight: 400; }
 .picker-tools { display: flex; gap: 10px; margin-bottom: 10px; }

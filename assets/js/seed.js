@@ -1949,6 +1949,7 @@ window.SEED = {
     postReviewMode: "auto",        // 帖子审核：all 全部先审 / auto 规则+AI 自动判断 / none 不审
     aiReviewEnabled: false,        // 是否启用 AI 复核（需要在下面填云函数地址）
     aiReviewEndpoint: "",          // 例如 https://xxx.service.tcloudbase.com/review-post
+    smsEndpoint: "",               // 短信云函数地址；留空则验证码走「演示模式」（直接显示在页面上）
     commentPageSize: 10            // 评论区每次加载条数
   },
 
