@@ -4,7 +4,7 @@
   "description": "鸡尾酒法典 · 数据接口云函数（服务端数据层）",
   "main": "index.js",
   "dependencies": {
-    "@cloudbase/node-sdk": "^2.9.0"
+    "pg": "^8.11.0"
   },
   "engines": { "node": ">=16" }
 }

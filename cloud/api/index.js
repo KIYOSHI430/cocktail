@@ -1,131 +1,142 @@
 /**
- * 云函数：鸡尾酒法典 · 数据接口（服务端）
+ * 云函数：鸡尾酒法典 · 数据接口（PostgreSQL 版）
  *
- * 设计思路（很重要，决定了前端几乎不用改）：
+ * 设计思路（决定了前端几乎不用改）：
  *   1. 前端打开页面时调一次 `bootstrap`，把「材料 + 配方 + 帖子 + 评论 + 设置 + 当前用户」整包拉下来
- *   2. 之后界面上的读操作都在内存里进行（原来的同步代码照旧跑，一行不用改）
- *   3. 所有写操作（注册、登录、发帖、评论、点赞、改密码…）都调这个云函数，
- *      由服务端校验身份、写数据库，再把最新数据返回给前端覆盖内存
+ *   2. 之后界面的读操作都在内存里进行（原来的同步代码照旧跑）
+ *   3. 所有写操作都调这个云函数，服务端校验身份、写数据库，返回最新数据让前端覆盖内存
+ *
+ * 需要配置的环境变量（云函数 → 配置 → 环境变量）：
+ *   DATABASE_URL   PostgreSQL 连接串，从「SQL 型数据库 → 配置」里复制，
+ *                  形如 postgresql://用户名:密码@内网地址:5432/数据库名
  *
  * 安全要点：
- *   - 数据库权限设成「仅管理端可写」，前端拿不到数据库，只能通过这个云函数
+ *   - 数据库只允许这个云函数访问（同环境内网），前端拿不到连接信息
  *   - 密码用 Node 自带的 scrypt 加盐哈希，明文不落库
- *   - 登录后签发 token，存在 sessions 集合里，带过期时间
- *
- * 环境变量（云函数里自动注入，一般不用配）：
- *   TCB_ENV  当前云开发环境 ID
+ *   - 登录签发 token，存在 sessions 表，30 天有效
  */
 
-const cloudbase = require("@cloudbase/node-sdk");
+const { Pool } = require("pg");
 const crypto = require("crypto");
 
-const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV });
-const db = app.database();
-const _ = db.command;
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 5,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 8000
+});
 
 const SESSION_DAYS = 30;
-const COLL = {
-  users: "users", sessions: "sessions", ingredients: "ingredients", recipes: "recipes",
-  posts: "posts", comments: "comments", reports: "reports", settings: "settings"
-};
 
-/* ---------------- 工具 ---------------- */
+/* ---------------- 数据库小工具 ---------------- */
 
+async function q(sql, params) {
+  const res = await pool.query(sql, params || []);
+  return res.rows;
+}
+async function one(sql, params) {
+  const rows = await q(sql, params);
+  return rows[0] || null;
+}
 function ok(data) { return { ok: true, data: data }; }
 function fail(msg) { return { ok: false, msg: msg }; }
-
 function newId(prefix) {
   return prefix + "-" + Date.now().toString(36) + crypto.randomBytes(3).toString("hex");
 }
 
-/* ---------------- 密码（scrypt，比前端那套强得多） ---------------- */
+/* ---------------- 密码与会话 ---------------- */
 
 function hashPassword(password, salt) {
   const s = salt || crypto.randomBytes(16).toString("hex");
-  const h = crypto.scryptSync(String(password), s, 64).toString("hex");
-  return { salt: s, hash: h };
+  return { salt: s, hash: crypto.scryptSync(String(password), s, 64).toString("hex") };
 }
-
 function checkPassword(user, password) {
   if (!user || !user.hash || !user.salt) return false;
   const h = crypto.scryptSync(String(password), user.salt, 64).toString("hex");
-  return crypto.timingSafeEqual(Buffer.from(h, "hex"), Buffer.from(user.hash, "hex"));
+  return h.length === String(user.hash).length && crypto.timingSafeEqual(Buffer.from(h), Buffer.from(user.hash));
 }
-
-function isPhone(v) { return /^1[3-9]\d{9}$/.test(String(v || "").trim()); }
-function maskPhone(p) { return isPhone(p) ? p.slice(0, 3) + "****" + p.slice(7) : p; }
-
-/* ---------------- 会话 ---------------- */
 
 async function createSession(userId) {
   const token = crypto.randomBytes(24).toString("hex");
-  const expiresAt = Date.now() + SESSION_DAYS * 86400000;
-  await db.collection(COLL.sessions).add({ _id: token, userId: userId, expiresAt: expiresAt });
+  await q("insert into sessions (token, user_id, expires_at) values ($1,$2,$3)",
+    [token, userId, Date.now() + SESSION_DAYS * 86400000]);
   return token;
 }
 
 async function userByToken(token) {
   if (!token) return null;
-  try {
-    const s = await db.collection(COLL.sessions).doc(token).get();
-    const sess = s.data && s.data[0];
-    if (!sess) return null;
-    if (sess.expiresAt && sess.expiresAt < Date.now()) return null;
-    const u = await db.collection(COLL.users).doc(sess.userId).get();
-    return (u.data && u.data[0]) || null;
-  } catch (e) {
-    return null;
-  }
+  const s = await one("select * from sessions where token = $1", [token]);
+  if (!s || Number(s.expires_at) < Date.now()) return null;
+  return one("select * from users where id = $1", [s.user_id]);
 }
 
-/** 对外返回的用户信息（去掉盐和哈希） */
 function publicUser(u) {
   if (!u) return null;
   return {
-    id: u._id, phone: u.phone || "", phoneMasked: maskPhone(u.phone || ""),
+    id: u.id, phone: u.phone || "",
+    phoneMasked: u.phone ? u.phone.slice(0, 3) + "****" + u.phone.slice(7) : "",
     username: u.username, nickname: u.nickname || u.username, role: u.role || "user",
-    intro: u.intro || "", createdAt: u.createdAt || "",
-    favorites: u.favorites || [], postFavorites: u.postFavorites || [], myIngredients: u.myIngredients || []
+    intro: u.intro || "", createdAt: u.created_at,
+    favorites: u.favorites || [], postFavorites: u.post_favorites || [], myIngredients: u.my_ingredients || []
   };
 }
 
-/* ---------------- 整包数据（前端启动时拉一次） ---------------- */
+/* ---------------- 行 → 前端数据结构 ---------------- */
 
-async function fetchAll(coll, limit) {
-  const out = [];
-  const pageSize = 100;
-  for (let skip = 0; skip < (limit || 5000); skip += pageSize) {
-    const res = await db.collection(coll).skip(skip).limit(pageSize).get();
-    const rows = res.data || [];
-    out.push.apply(out, rows);
-    if (rows.length < pageSize) break;
-  }
-  return out;
+function rowIngredient(r) {
+  return {
+    id: r.id, name: r.name, cat: r.cat, emoji: r.emoji, aka: r.aka, alias: r.alias,
+    basic: r.is_basic, py: r.py, initial: r.initial
+  };
+}
+function rowRecipe(r) {
+  return {
+    id: r.id, name: r.name, en: r.en, alias: r.alias, type: r.type, emoji: r.emoji, color: r.color,
+    glass: r.glass, abv: r.abv, desc: r.desc, image: r.image, video: r.video, videoName: r.video_name,
+    tags: r.tags || [], ingredients: r.items || [], steps: r.steps || [],
+    py: r.py, initial: r.initial, authorId: r.author_id, author: r.author,
+    status: r.status, views: r.views, createdAt: r.created_at
+  };
+}
+function rowComment(r) {
+  return {
+    id: r.id, recipeId: r.target_id, targetType: r.target_type, targetId: r.target_id,
+    userId: r.user_id, username: r.username, nickname: r.nickname, content: r.content,
+    parentId: r.parent_id, likes: r.likes || [], pinned: r.pinned, hidden: r.hidden,
+    createdAt: r.created_at
+  };
+}
+function rowPost(r) {
+  return {
+    id: r.id, title: r.title, content: r.content, images: r.images || [], category: r.category,
+    recipeTags: r.recipe_tags || [], authorId: r.author_id, username: r.username, nickname: r.nickname,
+    status: r.status, review: r.review || {}, rejectReason: r.reject_reason,
+    likes: r.likes || [], views: r.views, comments: r.comments || [], createdAt: r.created_at
+  };
+}
+
+/* ---------------- 整包数据 ---------------- */
+
+async function getSettings() {
+  const row = await one("select data from settings where id = 'site'");
+  return (row && row.data) || {};
 }
 
 async function bootstrap(token) {
-  const [ingredients, recipes, posts, comments, settingsRows, user] = await Promise.all([
-    fetchAll(COLL.ingredients, 1000),
-    fetchAll(COLL.recipes, 2000),
-    fetchAll(COLL.posts, 2000),
-    fetchAll(COLL.comments, 5000),
-    db.collection(COLL.settings).doc("site").get().catch(() => ({ data: [] })),
+  const [ingredients, recipes, posts, comments, settings, user] = await Promise.all([
+    q("select * from ingredients order by initial, py"),
+    q("select * from recipes order by created_at desc"),
+    q("select * from posts order by created_at desc limit 1000"),
+    q("select * from comments order by created_at desc limit 3000"),
+    getSettings(),
     userByToken(token)
   ]);
-
-  // 给数据库记录补上前端在用的字段名（_id → id）
-  const norm = rows => rows.map(r => Object.assign({}, r, { id: r._id }));
-
   return ok({
-    ingredients: norm(ingredients),
-    recipes: norm(recipes).map(r => Object.assign(r, {
-      ingredients: (r.items || []).map(x => ({ id: x.id, amount: x.amount, optional: x.optional })),
-      author: r.author || "官方",
-      views: r.views || 0
-    })),
-    posts: norm(posts),
-    comments: norm(comments),
-    settings: (settingsRows.data && settingsRows.data[0]) || null,
+    ingredients: ingredients.map(rowIngredient),
+    recipes: recipes.map(rowRecipe),
+    posts: posts.map(rowPost),
+    comments: comments.map(rowComment),
+    settings: settings,
     user: publicUser(user),
     serverTime: Date.now()
   });
@@ -133,47 +144,37 @@ async function bootstrap(token) {
 
 /* ---------------- 账号 ---------------- */
 
-async function register(payload, token) {
+async function register(payload) {
   const nickname = String(payload.nickname || "").trim();
   const phone = String(payload.phone || "").trim();
   const password = String(payload.password || "");
-
   if (nickname.length < 2 || nickname.length > 12) return fail("昵称需要 2-12 个字");
-  if (!isPhone(phone)) return fail("请输入正确的 11 位手机号");
+  if (!/^1[3-9]\d{9}$/.test(phone)) return fail("请输入正确的 11 位手机号");
   if (password.length < 6) return fail("密码至少 6 位");
   if (payload.confirm !== undefined && password !== String(payload.confirm)) return fail("两次输入的密码不一致");
 
-  const dup = await db.collection(COLL.users).where({ phone: phone }).limit(1).get();
-  if (dup.data && dup.data.length) return fail("这个手机号已经注册过了");
+  const exists = await one("select id from users where phone = $1", [phone]);
+  if (exists) return fail("这个手机号已经注册过了");
 
   const ph = hashPassword(password);
-  const user = {
-    _id: newId("u"),
-    phone: phone,
-    username: phone,
-    nickname: nickname,
-    salt: ph.salt,
-    hash: ph.hash,
-    role: "user",
-    intro: "",
-    createdAt: new Date().toISOString(),
-    favorites: [], postFavorites: [], myIngredients: []
-  };
-  await db.collection(COLL.users).add(user);
-  const newToken = await createSession(user._id);
+  const id = newId("u");
+  await q("insert into users (id, phone, username, nickname, salt, hash, role, intro) values ($1,$2,$3,$4,$5,$6,'user','')",
+    [id, phone, phone, nickname, ph.salt, ph.hash]);
+  const newToken = await createSession(id);
+  const user = await one("select * from users where id = $1", [id]);
   return ok({ token: newToken, user: publicUser(user) });
 }
 
 async function login(payload) {
   const account = String(payload.account || "").trim();
   const password = String(payload.password || "");
-  const where = isPhone(account) ? { phone: account } : { username: account };
-  const res = await db.collection(COLL.users).where(where).limit(1).get();
-  const user = (res.data || [])[0];
+  const isPhone = /^1[3-9]\d{9}$/.test(account);
+  const user = await one(isPhone ? "select * from users where phone = $1" : "select * from users where username = $1",
+    [account]);
   if (!user || !checkPassword(user, password)) {
-    return fail(isPhone(account) ? "手机号或密码不正确" : "账号或密码不正确");
+    return fail(isPhone ? "手机号或密码不正确" : "账号或密码不正确");
   }
-  const token = await createSession(user._id);
+  const token = await createSession(user.id);
   return ok({ token: token, user: publicUser(user) });
 }
 
@@ -184,25 +185,39 @@ async function changePassword(payload, token, me) {
   if (np.length < 6) return fail("新密码至少 6 位");
   if (np !== String(payload.confirmPwd || np)) return fail("两次输入的新密码不一致");
   const ph = hashPassword(np);
-  await db.collection(COLL.users).doc(me._id).update({ salt: ph.salt, hash: ph.hash });
+  await q("update users set salt = $1, hash = $2 where id = $3", [ph.salt, ph.hash, me.id]);
   return ok({ changed: true });
 }
 
 async function updateProfile(payload, token, me) {
   if (!me) return fail("请先登录");
-  const patch = {};
-  if (payload.nickname !== undefined) patch.nickname = String(payload.nickname).slice(0, 12);
-  if (payload.intro !== undefined) patch.intro = String(payload.intro).slice(0, 100);
-  if (payload.favorites) patch.favorites = payload.favorites;
-  if (payload.postFavorites) patch.postFavorites = payload.postFavorites;
-  if (payload.myIngredients) patch.myIngredients = payload.myIngredients;
-  await db.collection(COLL.users).doc(me._id).update(patch);
-  return ok({ updated: true });
+  const sets = [], params = [];
+  function set(col, val) { params.push(val); sets.push(col + " = $" + params.length); }
+  if (payload.nickname !== undefined) set("nickname", String(payload.nickname).slice(0, 12));
+  if (payload.intro !== undefined) set("intro", String(payload.intro).slice(0, 100));
+  if (payload.favorites) set("favorites", JSON.stringify(payload.favorites));
+  if (payload.postFavorites) set("post_favorites", JSON.stringify(payload.postFavorites));
+  if (payload.myIngredients) set("my_ingredients", JSON.stringify(payload.myIngredients));
+  if (!sets.length) return ok({ updated: false });
+  params.push(me.id);
+  await q("update users set " + sets.join(", ") + " where id = $" + params.length, params);
+  const user = await one("select * from users where id = $1", [me.id]);
+  return ok({ user: publicUser(user) });
+}
+
+async function toggleFavorite(payload, token, me) {
+  if (!me) return fail("登录后才能收藏");
+  const isPost = payload.kind === "post";
+  const list = (isPost ? (me.post_favorites || []) : (me.favorites || [])).slice();
+  const idx = list.indexOf(payload.id);
+  if (idx >= 0) list.splice(idx, 1); else list.push(payload.id);
+  const col = isPost ? "post_favorites" : "favorites";
+  await q("update users set " + col + " = $1 where id = $2", [JSON.stringify(list), me.id]);
+  return ok({ faved: idx < 0, list: list });
 }
 
 /* ---------------- 帖子 ---------------- */
 
-/** 规则审核（服务端再跑一遍，前端那份只是即时反馈） */
 const RULES = [
   { re: /(微信|weixin|wechat|vx|加我|私聊|私我)/i, score: 40, reason: "疑似引流（提到微信/私聊）" },
   { re: /(加群|拉群|进群|群号|扫码|二维码)/, score: 40, reason: "疑似引流（拉群/扫码）" },
@@ -215,7 +230,6 @@ const RULES = [
   { re: /(傻[逼比]|智障|去死|滚蛋)/, score: 30, reason: "疑似侮辱性用语" },
   { re: /(垃圾人|贱人|恶心东西)/, score: 35, reason: "疑似辱骂" }
 ];
-
 function ruleReview(title, content) {
   const text = String(title || "") + "\n" + String(content || "");
   let score = 0;
@@ -225,7 +239,6 @@ function ruleReview(title, content) {
   if (text.replace(/\s/g, "").length < 6) { score += 20; reasons.push("内容太短"); }
   return { risk: Math.min(100, score), reasons: reasons };
 }
-
 function statusByRisk(risk) {
   if (risk >= 70) return "rejected";
   if (risk >= 30) return "pending";
@@ -245,24 +258,15 @@ async function addPost(payload, token, me) {
   let status = mode === "none" ? "approved" : (mode === "all" ? "pending" : statusByRisk(rule.risk));
   if (me.role === "admin") status = "approved";
 
-  const post = {
-    _id: newId("post"),
-    title: title,
-    content: content,
-    images: (payload.images || []).slice(0, 6),
-    category: payload.category || "闲聊",
-    recipeTags: (payload.recipeTags || []).slice(0, 3),
-    authorId: me._id,
-    username: me.username,
-    nickname: me.nickname || me.username,
-    status: status,
-    review: { source: "rule", risk: rule.risk, reasons: rule.reasons, at: new Date().toISOString() },
-    rejectReason: status === "rejected" ? rule.reasons.join("；") : "",
-    likes: [], views: 0, comments: [],
-    createdAt: new Date().toISOString()
-  };
-  await db.collection(COLL.posts).add(post);
-  return ok({ post: Object.assign({}, post, { id: post._id }) });
+  const id = newId("post");
+  await q("insert into posts (id, title, content, images, category, recipe_tags, author_id, username, nickname, status, review, reject_reason, likes, views, comments) " +
+          "values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'[]'::jsonb,0,'[]'::jsonb)",
+    [id, title, content, JSON.stringify(payload.images || []), payload.category || "闲聊",
+     JSON.stringify(payload.recipeTags || []), me.id, me.username, me.nickname,
+     status, JSON.stringify({ source: "rule", risk: rule.risk, reasons: rule.reasons }),
+     status === "rejected" ? rule.reasons.join("；") : ""]);
+  const post = await one("select * from posts where id = $1", [id]);
+  return ok({ post: rowPost(post) });
 }
 
 async function addPostComment(payload, token, me) {
@@ -270,52 +274,49 @@ async function addPostComment(payload, token, me) {
   const content = String(payload.content || "").trim();
   if (!content) return fail("回复不能为空");
   if (content.length > 500) return fail("回复最多 500 字");
+  const post = await one("select comments from posts where id = $1", [payload.postId]);
+  if (!post) return fail("帖子不存在");
+  const list = post.comments || [];
   const comment = {
-    _id: newId("pc"), userId: me._id, username: me.username,
+    id: newId("pc"), userId: me.id, username: me.username,
     nickname: me.nickname || me.username, content: content,
     likes: [], createdAt: new Date().toISOString()
   };
-  await db.collection(COLL.posts).doc(payload.postId).update({
-    comments: _.push(comment)
-  });
+  list.push(comment);
+  await q("update posts set comments = $1 where id = $2", [JSON.stringify(list), payload.postId]);
   return ok({ comment: comment });
 }
 
 async function togglePostLike(payload, token, me) {
   if (!me) return fail("登录后才能点赞");
-  const res = await db.collection(COLL.posts).doc(payload.postId).get();
-  const post = (res.data || [])[0];
+  const post = await one("select likes from posts where id = $1", [payload.postId]);
   if (!post) return fail("帖子不存在");
-  const liked = (post.likes || []).indexOf(me._id) >= 0;
-  await db.collection(COLL.posts).doc(payload.postId).update({
-    likes: liked ? _.pull(me._id) : _.push(me._id)
-  });
-  return ok({ liked: !liked });
+  const list = post.likes || [];
+  const idx = list.indexOf(me.id);
+  if (idx >= 0) list.splice(idx, 1); else list.push(me.id);
+  await q("update posts set likes = $1 where id = $2", [JSON.stringify(list), payload.postId]);
+  return ok({ liked: idx < 0, count: list.length });
 }
 
 async function setPostStatus(payload, token, me) {
   if (!me || me.role !== "admin") return fail("只有管理员可以审核");
-  await db.collection(COLL.posts).doc(payload.id).update({
-    status: payload.status,
-    rejectReason: payload.status === "rejected" ? String(payload.reason || "管理员判定不适合发布") : "",
-    manualReview: true,
-    reviewedBy: me.username,
-    reviewedAt: new Date().toISOString()
-  });
+  await q("update posts set status = $1, reject_reason = $2 where id = $3",
+    [payload.status,
+     payload.status === "rejected" ? String(payload.reason || "管理员判定不适合发布") : "",
+     payload.id]);
   return ok({ updated: true });
 }
 
 async function deletePost(payload, token, me) {
   if (!me) return fail("请先登录");
-  const res = await db.collection(COLL.posts).doc(payload.id).get();
-  const post = (res.data || [])[0];
+  const post = await one("select author_id from posts where id = $1", [payload.id]);
   if (!post) return fail("帖子不存在");
-  if (me.role !== "admin" && post.authorId !== me._id) return fail("只能删除自己的帖子");
-  await db.collection(COLL.posts).doc(payload.id).remove();
+  if (me.role !== "admin" && post.author_id !== me.id) return fail("只能删除自己的帖子");
+  await q("delete from posts where id = $1", [payload.id]);
   return ok({ deleted: true });
 }
 
-/* ---------------- 评论 / 收藏 / 配方 ---------------- */
+/* ---------------- 配方 / 评论 / 勘误 / 设置 ---------------- */
 
 async function saveRecipe(payload, token, me) {
   if (!me) return fail("请先登录");
@@ -325,64 +326,103 @@ async function saveRecipe(payload, token, me) {
   if (!r.name || !String(r.name).trim()) return fail("请填写酒名");
   if (!r.items || !r.items.length) return fail("至少添加一种材料");
   if (!r.tags || !r.tags.length) return fail("至少选一个口味标签");
-
-  const doc = {
-    _id: r.id || newId("r"),
-    name: String(r.name).trim(),
-    en: r.en || "", alias: "", type: r.type === "classic" ? "classic" : "custom",
-    emoji: r.emoji || "🍹", color: r.color || "#e0a94a",
-    glass: r.glass || "", abv: r.abv || "", desc: r.desc || "",
-    image: r.image || "", video: r.video || "", videoName: r.videoName || "",
-    tags: r.tags.slice(0, 10),
-    items: r.items.map(x => ({ id: x.id, amount: x.amount || "", optional: !!x.optional })),
-    steps: r.steps || [],
-    py: r.py || "", initial: r.initial || "#",
-    authorId: me._id, author: me.nickname || me.username,
-    status: (settings.needReview && me.role !== "admin") ? "pending" : "approved",
-    views: 0, createdAt: new Date().toISOString()
-  };
-  await db.collection(COLL.recipes).add(doc);
-  return ok({ recipe: doc });
+  const id = r.id || newId("r");
+  await q('insert into recipes (id, name, en, type, emoji, color, glass, abv, "desc", image, video, video_name, tags, items, steps, py, initial, author_id, author, status) ' +
+          "values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) " +
+          'on conflict (id) do update set name = excluded.name, items = excluded.items, steps = excluded.steps, tags = excluded.tags, "desc" = excluded."desc"',
+    [id, r.name, r.en || "", r.type === "classic" ? "classic" : "custom", r.emoji || "🍹", r.color || "#e0a94a",
+     r.glass || "", r.abv || "", r.desc || "", r.image || "", r.video || "", r.videoName || "",
+     JSON.stringify(r.tags.slice(0, 10)), JSON.stringify(r.items), JSON.stringify(r.steps || []),
+     r.py || "", r.initial || "#", me.id, me.nickname || me.username,
+     (settings.needReview && me.role !== "admin") ? "pending" : "approved"]);
+  const recipe = await one("select * from recipes where id = $1", [id]);
+  return ok({ recipe: rowRecipe(recipe) });
 }
 
 async function deleteRecipe(payload, token, me) {
   if (!me) return fail("请先登录");
-  const res = await db.collection(COLL.recipes).doc(payload.id).get();
-  const rec = (res.data || [])[0];
+  const rec = await one("select author_id from recipes where id = $1", [payload.id]);
   if (!rec) return fail("配方不存在");
-  if (me.role !== "admin" && rec.authorId !== me._id) return fail("只能删除自己发布的配方");
-  await db.collection(COLL.recipes).doc(payload.id).remove();
-  await db.collection(COLL.comments).where({ targetId: payload.id }).remove();
+  if (me.role !== "admin" && rec.author_id !== me.id) return fail("只能删除自己发布的配方");
+  await q("delete from comments where target_id = $1", [payload.id]);
+  await q("delete from recipes where id = $1", [payload.id]);
   return ok({ deleted: true });
 }
 
-async function toggleFavorite(payload, token, me) {
-  if (!me) return fail("登录后才能收藏");
-  const field = payload.kind === "post" ? "postFavorites" : "favorites";
-  const list = (me[field] || []).slice();
-  const idx = list.indexOf(payload.id);
-  if (idx >= 0) list.splice(idx, 1); else list.push(payload.id);
-  const patch = {};
-  patch[field] = list;
-  await db.collection(COLL.users).doc(me._id).update(patch);
-  return ok({ faved: idx < 0, list: list });
+async function addComment(payload, token, me) {
+  if (!me) return fail("请先登录");
+  const content = String(payload.content || "").trim();
+  if (!content) return fail("评论不能为空");
+  if (content.length > 500) return fail("评论最多 500 字");
+  const id = newId("c");
+  await q("insert into comments (id, target_type, target_id, user_id, username, nickname, content, parent_id) " +
+          "values ($1,'recipe',$2,$3,$4,$5,$6,$7)",
+    [id, payload.recipeId, me.id, me.username, me.nickname || me.username, content, payload.parentId || null]);
+  const c = await one("select * from comments where id = $1", [id]);
+  return ok({ comment: rowComment(c) });
 }
 
-/* ---------------- 设置 ---------------- */
+async function deleteComment(payload, token, me) {
+  if (!me) return fail("请先登录");
+  const c = await one("select * from comments where id = $1", [payload.id]);
+  if (!c) return fail("评论不存在");
+  if (me.role !== "admin" && c.user_id !== me.id) return fail("只能删除自己的评论");
+  await q("delete from comments where id = $1 or parent_id = $1", [payload.id]);
+  return ok({ deleted: true });
+}
 
-async function getSettings() {
-  try {
-    const res = await db.collection(COLL.settings).doc("site").get();
-    return (res.data && res.data[0]) || {};
-  } catch (e) { return {}; }
+async function toggleCommentLike(payload, token, me) {
+  if (!me) return fail("登录后才能点赞");
+  const c = await one("select likes from comments where id = $1", [payload.id]);
+  if (!c) return fail("评论不存在");
+  const list = c.likes || [];
+  const idx = list.indexOf(me.id);
+  if (idx >= 0) list.splice(idx, 1); else list.push(me.id);
+  await q("update comments set likes = $1 where id = $2", [JSON.stringify(list), payload.id]);
+  return ok({ liked: idx < 0, count: list.length });
+}
+
+async function addReport(payload, token, me) {
+  if (!me) return fail("请先登录后再提交勘误");
+  const content = String(payload.content || "").trim();
+  if (content.length < 4) return fail("请把问题写得再具体一点");
+  const id = newId("rep");
+  let recipeName = "材料库";
+  if (payload.recipeId) {
+    const r = await one("select name from recipes where id = $1", [payload.recipeId]);
+    if (r) recipeName = r.name;
+  }
+  await q("insert into reports (id, recipe_id, recipe_name, type, content, suggest, user_id, username, nickname, status) " +
+          "values ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending')",
+    [id, payload.recipeId || null, recipeName, payload.type || "其他问题", content,
+     String(payload.suggest || "").slice(0, 200), me.id, me.username, me.nickname || me.username]);
+  return ok({ id: id });
+}
+
+async function listReports(payload, token, me) {
+  if (!me || me.role !== "admin") return fail("只有管理员可以查看勘误");
+  return ok({ reports: await q("select * from reports order by created_at desc limit 500") });
+}
+
+async function updateReport(payload, token, me) {
+  if (!me || me.role !== "admin") return fail("只有管理员可以处理勘误");
+  if (payload.remove) await q("delete from reports where id = $1", [payload.id]);
+  else if (payload.status) await q("update reports set status = $1 where id = $2", [payload.status, payload.id]);
+  return ok({ updated: true });
 }
 
 async function updateSettings(payload, token, me) {
   if (!me || me.role !== "admin") return fail("只有管理员可以修改设置");
-  const patch = Object.assign({}, payload.patch || {}, { updatedAt: new Date().toISOString() });
-  delete patch._id;
-  await db.collection(COLL.settings).doc("site").set(patch);
-  return ok({ settings: await getSettings() });
+  const cur = await getSettings();
+  const next = Object.assign({}, cur, payload.patch || {});
+  await q("insert into settings (id, data, updated_at) values ('site', $1, now()) " +
+          "on conflict (id) do update set data = $1, updated_at = now()", [JSON.stringify(next)]);
+  return ok({ settings: next });
+}
+
+async function adminUsers(payload, token, me) {
+  if (!me || me.role !== "admin") return fail("只有管理员可以查看用户");
+  return ok({ users: await q("select id, phone, username, nickname, role, intro, created_at from users order by created_at") });
 }
 
 /* ---------------- 入口 ---------------- */
@@ -393,6 +433,7 @@ const HANDLERS = {
   login: (p) => login(p),
   changePassword: changePassword,
   updateProfile: updateProfile,
+  toggleFavorite: toggleFavorite,
   addPost: addPost,
   addPostComment: addPostComment,
   togglePostLike: togglePostLike,
@@ -400,7 +441,14 @@ const HANDLERS = {
   deletePost: deletePost,
   saveRecipe: saveRecipe,
   deleteRecipe: deleteRecipe,
-  updateSettings: updateSettings
+  addComment: addComment,
+  deleteComment: deleteComment,
+  toggleCommentLike: toggleCommentLike,
+  addReport: addReport,
+  listReports: listReports,
+  updateReport: updateReport,
+  updateSettings: updateSettings,
+  adminUsers: adminUsers
 };
 
 function parseEvent(event) {
@@ -411,10 +459,11 @@ function parseEvent(event) {
   }
   const query = body.queryStringParameters || {};
   const headers = body.headers || {};
-  const token = body.token || query.token || headers["x-token"] || "";
-  const action = body.action || query.action || "";
-  const payload = body.payload || body;
-  return { action: action, payload: payload, token: token };
+  return {
+    action: body.action || query.action || "",
+    payload: body.payload || body,
+    token: body.token || query.token || headers["x-token"] || ""
+  };
 }
 
 /** HTTP 访问服务要返回 CORS 头，否则 GitHub Pages 上的网页调不动 */
@@ -434,16 +483,19 @@ function httpResponse(result) {
 exports.main = async (event) => {
   const { action, payload, token } = parseEvent(event);
   if (!action) return httpResponse(fail("缺少 action"));
-  if (action === "ping") return httpResponse(ok({ env: process.env.TCB_ENV || "unknown", time: Date.now() }));
-  if (action === "options") return httpResponse(ok({}));
-
+  if (action === "ping") {
+    try {
+      await q("select 1");
+      return httpResponse(ok({ db: "ok", time: Date.now() }));
+    } catch (e) {
+      return httpResponse(fail("数据库连不上：" + e.message + "（检查 DATABASE_URL 环境变量）"));
+    }
+  }
   const handler = HANDLERS[action];
   if (!handler) return httpResponse(fail("未知的 action：" + action));
-
   try {
     const me = await userByToken(token);
-    const result = await handler(payload, token, me);
-    return httpResponse(result);
+    return httpResponse(await handler(payload, token, me));
   } catch (e) {
     console.error("[api] " + action + " 出错：", e);
     return httpResponse(fail("服务端出错：" + e.message));

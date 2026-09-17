@@ -1,2 +1,0 @@
-{"_id":"u-admin","phone":"17345930612","username":"17345930612","nickname":"站长","role":"admin","intro":"站点管理员：负责材料库、配方审核、评论管理与用户权限。","createdAt":"2026-01-01T00:00:00.000Z","favorites":[],"postFavorites":[],"myIngredients":[],"salt":"7f3a9c1e5b2d8460a1c3e5f7092b4d68","hash":"29bb7797b824277c9b3713a3653e11712305be6391e8bb5a5714ddcd682e7b07"}
-{"_id":"u-demo","phone":"","username":"demo","nickname":"爱喝莫吉托的人","role":"user","intro":"演示用普通账号：可以发布配方、推荐视频、评论和收藏。","createdAt":"2026-01-01T00:00:00.000Z","favorites":[],"postFavorites":[],"myIngredients":[],"needsPasswordReset":true}
