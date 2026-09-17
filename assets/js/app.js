@@ -341,15 +341,18 @@
   }
 
   function deckCardHTML(r, idx, total) {
-    var img = r.imageThumb
-      ? '<img class="deck-img" src="' + esc(r.imageThumb) + '" alt="' + esc(r.name) + '" ' +
+    // 用原图（700×700）而不是小缩略图，并按较小尺寸显示，保证清晰
+    var img = r.image
+      ? '<img class="deck-img" src="' + esc(r.image) + '" alt="' + esc(r.name) + '" ' +
         'onload="this.classList.add(\'loaded\')" onerror="this.classList.add(\'failed\')">'
       : "";
     var tags = (r.tags || []).slice(0, 4).join(" · ");
-    return '<article class="deck-card" style="' + grad(r.color) + '">' +
-      img +
-      '<div class="deck-scrim"></div>' +
-      (r.imageThumb ? "" : '<span class="deck-emoji">' + esc(r.emoji || "🍹") + "</span>") +
+    return '<article class="deck-card">' +
+      // 半透明底色只铺在图片区（没图时当占位），卡片本体保持不透明，后面几张才不会透上来
+      '<div class="deck-media" style="' + grad(r.color) + '">' +
+        img +
+        (r.image ? "" : '<span class="deck-emoji">' + esc(r.emoji || "🍹") + "</span>") +
+      "</div>" +
       '<div class="deck-body">' +
         '<span class="kicker">第 ' + (idx + 1) + " 杯 · " + typeLabel(r.type) + "</span>" +
         "<h2>" + esc(r.name) + (r.en ? "<em>" + esc(r.en) + "</em>" : "") + "</h2>" +
@@ -374,9 +377,12 @@
     view.innerHTML =
       '<section class="home">' +
         '<div class="home-head">' +
-          '<span class="kicker">每日推荐 · DAILY PICKS</span>' +
-          "<h1>今天为你挑了 " + picks.length + " 杯</h1>" +
-          '<p class="home-date">' + esc(Store.todayLabel()) + "　左右滑动切换</p>" +
+          '<div class="home-head-main">' +
+            '<span class="kicker">每日推荐 · DAILY PICKS</span>' +
+            "<h1>今天为你挑了 " + picks.length + " 杯</h1>" +
+            '<p class="home-date">' + esc(Store.todayLabel()) + "</p>" +
+          "</div>" +
+          '<button class="link-btn deck-shuffle" data-action="deck-shuffle">换一批（仅本次）</button>' +
         "</div>" +
         '<div class="deck" id="deck" tabindex="0">' +
           picks.map(function (r, i) { return deckCardHTML(r, i, picks.length); }).join("") +
@@ -388,7 +394,7 @@
           }).join("") + "</div>" +
           '<span class="deck-counter" id="deckCounter"></span>' +
           '<button class="deck-arrow" data-action="deck-next" aria-label="下一杯">→</button>' +
-          '<button class="link-btn deck-shuffle" data-action="deck-shuffle">换一批（仅本次）</button>' +
+          '<span class="deck-hint">左右滑动切换</span>' +
         "</div>" +
       "</section>" +
 

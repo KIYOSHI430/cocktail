@@ -172,7 +172,10 @@ textarea.input { resize: vertical; }
 /* ============ 主页 · 每日推荐 ============ */
 
 .home { margin-bottom: 30px; }
-.home-head { margin-bottom: 18px; }
+.home-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 18px; margin-bottom: 20px; flex-wrap: wrap;
+}
 .home-head h1 {
   font-family: var(--serif); font-size: 31px; font-weight: 500;
   letter-spacing: .05em; margin: 0 0 8px;
@@ -187,10 +190,11 @@ textarea.input { resize: vertical; }
 .deck.dragging { cursor: grabbing; }
 
 .deck-card {
-  position: absolute; inset: 0; border-radius: 20px; overflow: hidden;
+  position: absolute; inset: 0; border-radius: 18px; overflow: hidden;
   border: 1px solid var(--line); box-shadow: 0 26px 70px rgba(0, 0, 0, .6);
   transform-origin: center center; will-change: transform, opacity;
-  background: var(--panel);
+  background: linear-gradient(160deg, #1a1712, #131110);
+  display: grid; grid-template-columns: minmax(280px, 46%) 1fr;
 }
 /* 首帧直接摆好位置（不加过渡），之后的切换才有动效 */
 .deck.ready .deck-card {
@@ -201,37 +205,41 @@ textarea.input { resize: vertical; }
 .deck-card:not(.is-front) .deck-body { opacity: 0; }
 .deck.ready .deck-card .deck-body { transition: opacity .3s ease; }
 
+.deck-media { position: relative; overflow: hidden; }
 .deck-img {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
   opacity: 0; transition: opacity .7s ease;
 }
 .deck-img.loaded { opacity: 1; }
 .deck-img.failed { display: none; }
-.deck-scrim {
-  position: absolute; inset: 0;
-  background: linear-gradient(to top,
-    rgba(6, 6, 5, .94) 0%, rgba(6, 6, 5, .72) 26%, rgba(6, 6, 5, .28) 58%, rgba(6, 6, 5, 0) 100%);
-}
 .deck-emoji {
-  position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%);
-  font-size: 88px; opacity: .45;
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  font-size: 84px; opacity: .5;
 }
-.deck-body { position: absolute; left: 0; right: 0; bottom: 0; padding: 30px 32px; }
+.deck-media::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent 60%, rgba(12, 11, 10, .55) 100%);
+}
+.deck-body {
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 34px 40px; min-width: 0;
+}
 .deck-body h2 {
-  font-family: var(--serif); font-size: 36px; font-weight: 500;
-  letter-spacing: .05em; margin: 0 0 10px; text-shadow: 0 2px 20px rgba(0, 0, 0, .5);
+  font-family: var(--serif); font-size: 34px; font-weight: 500;
+  letter-spacing: .05em; margin: 0 0 12px;
 }
-.deck-body h2 em { margin-left: 12px; font-size: 15px; letter-spacing: .1em; color: rgba(255, 255, 255, .62); }
+.deck-body h2 em { display: block; margin: 6px 0 0; font-size: 14px; letter-spacing: .12em; color: var(--text-2); }
 .deck-desc {
-  max-width: 580px; margin: 0 0 12px; font-size: 14.5px; line-height: 1.7;
-  color: rgba(255, 255, 255, .82);
+  margin: 0 0 14px; font-size: 14.5px; line-height: 1.8; color: var(--text-2);
 }
 .deck-tags {
   font-size: 12px; letter-spacing: .18em; color: var(--amber-2);
-  margin-bottom: 18px; text-transform: uppercase;
+  margin-bottom: 22px; padding-bottom: 20px; border-bottom: 1px solid var(--hair);
 }
 .deck-cta { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.deck-sub { font-size: 12.5px; color: rgba(255, 255, 255, .55); letter-spacing: .06em; }
+.deck-sub { font-size: 12.5px; color: var(--text-2); letter-spacing: .06em; }
+
+.deck-hint { margin-left: auto; font-size: 12px; color: var(--text-2); letter-spacing: .1em; }
 
 .deck-bar { display: flex; align-items: center; gap: 14px; margin-top: 20px; }
 .deck-arrow {
@@ -879,18 +887,23 @@ footer {
   .stat b { font-size: 21px; }
 
   /* 主页：卡片占满一屏，文字收紧，三项入口竖排 */
+  .home-head { align-items: flex-start; gap: 10px; margin-bottom: 16px; }
   .home-head h1 { font-size: 24px; }
-  .deck { height: 56vh; min-height: 330px; }
-  .deck-body { padding: 20px 18px; }
-  .deck-body h2 { font-size: 26px; }
-  .deck-body h2 em { display: block; margin: 4px 0 0; font-size: 12.5px; }
+  .home-head .deck-shuffle { font-size: 12px; }
+  .deck { height: 64vh; min-height: 400px; }
+  /* 手机上：图片在上、文字在下 */
+  .deck-card { grid-template-columns: 1fr; grid-template-rows: 45% 1fr; }
+  .deck-media::after { background: linear-gradient(180deg, transparent 72%, rgba(12, 11, 10, .5) 100%); }
+  .deck-body { padding: 16px 18px 18px; justify-content: flex-start; }
+  .deck-body h2 { font-size: 25px; margin-bottom: 8px; }
+  .deck-body h2 em { display: inline; margin: 0 0 0 8px; font-size: 12px; }
   .deck-desc {
     font-size: 13px; line-height: 1.65;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
-  .deck-tags { font-size: 11px; letter-spacing: .12em; margin-bottom: 14px; }
+  .deck-tags { font-size: 11px; letter-spacing: .12em; margin-bottom: 14px; padding-bottom: 12px; }
   .deck-bar { flex-wrap: wrap; gap: 10px; margin-top: 16px; }
-  .deck-shuffle { margin-left: 0; order: 5; width: 100%; text-align: left; }
+  .deck-hint { display: none; }
   .home-actions { grid-template-columns: 1fr; gap: 10px; margin-bottom: 24px; }
   .qa { padding: 16px 18px; }
   .home-stats { gap: 10px; }
