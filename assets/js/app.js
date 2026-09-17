@@ -587,11 +587,23 @@
 
   function renderHome() {
     if (!deckState.picks || !deckState.picks.length) {
-      deckState.picks = Store.dailyPicks(4, deckState.salt);
+      deckState.picks = Store.dailyPicks(4);
       deckState.i = 0;
     }
     var picks = deckState.picks;
     var all = Store.visibleRecipes().filter(function (r) { return r.status === "approved"; });
+    var homePosts = Store.listPosts({ status: "all", sort: "new" }).slice(0, 3);
+    var postsHTML = '<section class="home-posts">' +
+      '<div class="panel-head">' +
+        '<div><span class="kicker">交流区 · COMMUNITY</span>' +
+        "<h2>大家都在聊什么</h2></div>" +
+        '<div class="chips"><a class="chip" href="#/posts">全部帖子</a>' +
+        '<button class="chip" data-action="new-post">我要发帖</button></div>' +
+      "</div>" +
+      (homePosts.length
+        ? '<div class="post-list">' + homePosts.map(postCardHTML).join("") + "</div>"
+        : '<div class="empty sm">还没有人发言。发第一条帖，问问大家某杯酒怎么做？</div>') +
+      "</section>";
 
     view.innerHTML =
       '<section class="home">' +
@@ -601,7 +613,7 @@
             "<h1>今天为你挑了 " + picks.length + " 杯</h1>" +
             '<p class="home-date">' + esc(Store.todayLabel()) + "</p>" +
           "</div>" +
-          '<button class="link-btn deck-shuffle" data-action="deck-shuffle">换一批（仅本次）</button>' +
+          '<button class="link-btn deck-shuffle" data-action="deck-shuffle">换一批</button>' +
         "</div>" +
         '<div class="deck" id="deck" tabindex="0">' +
           picks.map(function (r, i) { return deckCardHTML(r, i, picks.length); }).join("") +
@@ -617,6 +629,8 @@
         "</div>" +
       "</section>" +
 
+      postsHTML +
+
       '<section class="home-actions">' +
         '<a class="qa" href="#/match"><b>按材料找酒</b><span>勾一勾冰箱里有什么，看你今晚能调哪几杯</span></a>' +
         '<a class="qa" href="#/tags"><b>按口味找酒</b><span>甜 · 酸 · 苦 · 气泡 · 长饮短饮 · 无酒精</span></a>' +
@@ -631,22 +645,7 @@
           statBox(all.filter(function (r) { return r.type === "classic"; }).length, "款经典") +
           statBox(all.filter(function (r) { return r.type === "custom"; }).length, "款特调") +
         "</div>" +
-      "</section>" +
-
-      (function () {
-        var posts = Store.listPosts({ status: "all", sort: "new" }).slice(0, 3);
-        return '<section class="home-posts">' +
-          '<div class="panel-head">' +
-            '<div><span class="kicker">交流区 · COMMUNITY</span>' +
-            "<h2>大家都在聊什么</h2></div>" +
-            '<div class="chips"><a class="chip" href="#/posts">全部帖子</a>' +
-            '<button class="chip" data-action="new-post">我要发帖</button></div>' +
-          "</div>" +
-          (posts.length
-            ? '<div class="post-list">' + posts.map(postCardHTML).join("") + "</div>"
-            : '<div class="empty sm">还没有人发言。发第一条帖，问问大家某杯酒怎么做？</div>') +
-          "</section>";
-      })();
+      "</section>";
 
     applyDeck();
     bindDeck();
@@ -1816,11 +1815,10 @@
         break;
       }
       case "deck-shuffle": {
-        deckState.salt = "s" + Date.now();
-        deckState.picks = Store.dailyPicks(4, deckState.salt);
+        deckState.picks = Store.shuffleDaily(4);
         deckState.i = 0;
         renderHome();
-        toast("换了一批，明天会自动回到每日推荐");
+        toast("已换一批，明天自动更新");
         break;
       }
       case "switch-auth": authModal(value); break;

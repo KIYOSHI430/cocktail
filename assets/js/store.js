@@ -126,6 +126,7 @@
       comments: seedComments(),
       reports: [],
       posts: seedPosts(),
+      dailyOverride: null,
       settings: clone(window.SEED.settings),
       sessionUserId: null,
       guestIngredients: []
@@ -167,6 +168,7 @@
     if (!Array.isArray(s.comments)) s.comments = seedComments();
     if (!Array.isArray(s.reports)) s.reports = [];
     if (!Array.isArray(s.posts)) s.posts = seedPosts();
+    if (typeof s.dailyOverride === "undefined") s.dailyOverride = null;
 
     // 站点更名：只有还停留在旧名字时才跟着改，你自己设过的名字不会被覆盖
     if (s.settings.siteName === "今晚喝什么") s.settings.siteName = "鸡尾酒法典";
@@ -188,6 +190,7 @@
           state.comments = state.comments || [];
           state.reports = state.reports || [];
           state.posts = state.posts || [];
+          state.dailyOverride = state.dailyOverride || null;
           state.users.forEach(normalizeUser);
           state.recipes.forEach(normalizeRecipe);
           if (oldVersion < DATA_VERSION) persist();
@@ -1284,12 +1287,16 @@
     return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日 · " + week;
   }
 
+  function todayKey() {
+    var d = new Date();
+    return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  }
+
   /**
-   * 每日推荐：同一天永远是这几杯，第二天自动换一批。
-   * salt 传不同的值可以拿到另一批（主页的「换一批」用它）。
+   * 按日期算出来的一批推荐（可复现：同一天同样的输入一定是同样结果）。
    * 挑选时会尽量避开口味重复的（标签重合 3 个以上就跳过）。
    */
-  function dailyPicks(count, salt) {
+  function baseDailyPicks(count, salt) {
     count = count || 4;
     var rnd = seededRandom(hashStr(dayKey(0) + "|" + (salt || "main")));
     var pool = visibleRecipes().filter(function (r) { return r.status === "approved"; }).slice();
@@ -1308,6 +1315,49 @@
     var k = 0;
     while (picked.length < count && k < rest.length) picked.push(rest[k++]);
     return picked;
+  }
+
+  /**
+   * 每日推荐：同一天默认就是这几杯。
+   * 如果用户点过「换一批」，就用换过的那批（换的结果会存下来，刷新页面也还在，到第二天自动恢复成新的每日推荐）。
+   */
+  function dailyPicks(count) {
+    count = count || 4;
+    var ov = state.dailyOverride;
+    if (ov && ov.date === todayKey() && Array.isArray(ov.ids) && ov.ids.length) {
+      var all = visibleRecipes();
+      var list = [];
+      ov.ids.forEach(function (id) {
+        var r = all.filter(function (x) { return x.id === id && x.status === "approved"; })[0];
+        if (r && !list.some(function (x) { return x.id === id; })) list.push(r);
+      });
+      // 换的那批至少还剩两杯可用，就继续用它；不够的用默认推荐补上
+      if (list.length >= Math.min(2, count)) {
+        if (list.length < count) {
+          baseDailyPicks(count * 3, "fill").forEach(function (r) {
+            if (list.length < count && !list.some(function (x) { return x.id === r.id; })) list.push(r);
+          });
+        }
+        return list.slice(0, count);
+      }
+    }
+    return baseDailyPicks(count, "main");
+  }
+
+  /** 换一批：结果会写进本地存储，刷新后仍然是这一批 */
+  function shuffleDaily(count) {
+    count = count || 4;
+    var picks = baseDailyPicks(count, "s" + Date.now() + "-" + Math.random());
+    state.dailyOverride = { date: todayKey(), ids: picks.map(function (r) { return r.id; }), at: new Date().toISOString() };
+    persist();
+    return picks;
+  }
+
+  /** 回到"今天默认的推荐"（清掉换过的那批） */
+  function resetDaily() {
+    state.dailyOverride = null;
+    persist();
+    return baseDailyPicks(4, "main");
   }
 
   /** 本地存储占用情况（用户上传的图片会占空间，后台可以看这个数字） */
@@ -1365,6 +1415,7 @@
       state.comments = state.comments || [];
       state.reports = state.reports || [];
       state.posts = state.posts || [];
+      state.dailyOverride = state.dailyOverride || null;
       state.users.forEach(normalizeUser);
       state.recipes.forEach(normalizeRecipe);
       state.sessionUserId = null;
@@ -1452,6 +1503,8 @@
     tagCounts: tagCounts,
     randomRecipe: randomRecipe,
     dailyPicks: dailyPicks,
+    shuffleDaily: shuffleDaily,
+    resetDaily: resetDaily,
     todayLabel: todayLabel,
     storageInfo: storageInfo,
 
