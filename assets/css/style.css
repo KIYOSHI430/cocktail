@@ -254,6 +254,56 @@ textarea.input { resize: vertical; }
   transition: border-color .18s ease, color .18s ease, transform .18s ease;
 }
 .deck-arrow:hover { border-color: var(--amber); color: var(--amber-2); transform: translateY(-2px); }
+
+/* ---------- 卡片两侧的悬浮切换箭头 ----------
+   平时几乎融进背景（若隐若现），鼠标移到卡片区域淡出到半透明，指到箭头上才完全清晰。
+   手机端不显示（那里用滑动 + 下方小箭头更顺手）。 */
+.deck-nav {
+  display: none; position: absolute; top: 50%; z-index: 30;
+  width: 54px; height: 54px; margin-top: -27px; padding: 0;
+  align-items: center; justify-content: center;
+  border-radius: 50%; cursor: pointer; color: var(--amber-2);
+  border: 1px solid rgba(224, 169, 74, .16);
+  /* 不用 backdrop-filter：它会在大图切换时逐帧重新采样，是之前菜单卡顿的老问题 */
+  background: radial-gradient(circle at 50% 45%, rgba(24, 20, 14, .82), rgba(14, 12, 10, .5));
+  opacity: .3;
+  transition: opacity .3s ease, transform .34s cubic-bezier(.22, .75, .28, 1),
+              border-color .3s ease, box-shadow .3s ease, background .3s ease;
+}
+.deck-nav-prev { left: 16px; }
+.deck-nav-next { right: 16px; }
+.deck-nav-inner {
+  display: grid; place-items: center;
+  animation: deckNavBreath 7s ease-in-out infinite;
+}
+.deck-nav svg { width: 23px; height: 23px; display: block; }
+.deck-nav-prev svg { transform: translateX(-1px); }
+.deck-nav-next svg { transform: translateX(1px); }
+
+/* 鼠标进入卡片区域：稍微浮现，提示这里可以点 */
+.deck:hover .deck-nav { opacity: .72; }
+/* 指到箭头上：完全清晰 + 轻微放大 + 一圈光晕 */
+.deck-nav:hover, .deck-nav:focus-visible {
+  opacity: 1; transform: scale(1.08);
+  border-color: rgba(224, 169, 74, .55);
+  background: radial-gradient(circle at 50% 45%, rgba(38, 30, 19, .95), rgba(18, 15, 12, .72));
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .5), 0 0 0 1px rgba(224, 169, 74, .22);
+  outline: none;
+}
+.deck-nav:active { transform: scale(.96); }
+.deck-nav:focus-visible { box-shadow: 0 0 0 2px rgba(224, 169, 74, .45); }
+/* 鼠标已经指到箭头上了，就停止呼吸，保持完全清晰，别晃眼 */
+.deck-nav:hover .deck-nav-inner,
+.deck-nav:focus-visible .deck-nav-inner { animation: none; opacity: 1; }
+
+/* 呼吸感：非常轻的忽明忽暗，让箭头"若隐若现" */
+@keyframes deckNavBreath {
+  0%, 100% { opacity: .72; }
+  50% { opacity: 1; }
+}
+
+.deck-hint-mouse { display: none; }
+
 .deck-dots { display: flex; gap: 8px; }
 .deck-dots span {
   width: 20px; height: 2px; background: var(--line); cursor: pointer;
@@ -1003,6 +1053,16 @@ footer {
   .hero h1 { font-size: 26px; }
   .perm-grid { grid-template-columns: 1fr; }
   .toolbar-right { margin-left: 0; width: 100%; }
+}
+
+/* ============ 桌面端：每日推荐用两侧箭头切换 ============ */
+
+@media (min-width: 821px) {
+  .deck-nav { display: flex; }
+  /* 大箭头已经压在卡片两侧了，底部那对小箭头就不重复摆放 */
+  .deck-bar .deck-arrow { display: none; }
+  .deck-hint-touch { display: none; }
+  .deck-hint-mouse { display: inline; }
 }
 
 /* ============ 手机：导航收进菜单 ============ */

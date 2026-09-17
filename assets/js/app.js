@@ -624,6 +624,20 @@
     });
   }
 
+  /** 卡片两侧的悬浮切换箭头：平时若隐若现，鼠标靠近才亮起来 */
+  function deckNavHTML(dir) {
+    var path = dir === "prev" ? "M15 5.5 8.5 12l6.5 6.5" : "M9 5.5 15.5 12 9 18.5";
+    return '<button type="button" class="deck-nav deck-nav-' + dir + '" data-action="deck-' + dir + '" ' +
+      'aria-label="' + (dir === "prev" ? "上一杯" : "下一杯") + '">' +
+        '<span class="deck-nav-inner">' +
+          '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+            '<path d="' + path + '" fill="none" stroke="currentColor" stroke-width="1.5" ' +
+              'stroke-linecap="round" stroke-linejoin="round"/>' +
+          "</svg>" +
+        "</span>" +
+      "</button>";
+  }
+
   function deckCardHTML(r, idx, total) {
     // 用原图（700×700）而不是小缩略图，并按较小尺寸显示，保证清晰
     var img = r.image
@@ -681,6 +695,8 @@
           '<button class="link-btn deck-shuffle" data-action="deck-shuffle">换一批</button>' +
         "</div>" +
         '<div class="deck" id="deck" tabindex="0">' +
+          deckNavHTML("prev") +
+          deckNavHTML("next") +
           picks.map(function (r, i) { return deckCardHTML(r, i, picks.length); }).join("") +
         "</div>" +
         '<div class="deck-bar">' +
@@ -690,7 +706,8 @@
           }).join("") + "</div>" +
           '<span class="deck-counter" id="deckCounter"></span>' +
           '<button class="deck-arrow" data-action="deck-next" aria-label="下一杯">→</button>' +
-          '<span class="deck-hint">左右滑动切换</span>' +
+          '<span class="deck-hint deck-hint-touch">左右滑动切换</span>' +
+          '<span class="deck-hint deck-hint-mouse">点两侧箭头切换，也可以按 ← → 键</span>' +
         "</div>" +
       "</section>" +
 
