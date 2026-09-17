@@ -162,6 +162,9 @@ function friendlyDbError(e) {
   if (/relation .*verify_codes.* does not exist/i.test(msg)) {
     return "数据库还没有验证码表：请在云开发控制台执行升级 SQL（见 docs/邮箱验证码指南.md）";
   }
+  if (/duplicate key value violates unique constraint .*phone/i.test(msg)) {
+    return "手机号字段还带着旧的唯一约束，第二个人注册会失败：请执行 cloud/sql/07-fix-phone-unique.sql";
+  }
   return msg;
 }
 
@@ -445,7 +448,9 @@ async function register(payload) {
     const ph = hashPassword(password);
     const id = newId("u");
     await dbInsert("users", {
-      id: id, email: email, phone: phone, username: email, nickname: nickname,
+      /* 手机号是可选的：没填就存 NULL。
+         千万别存空字符串 "" —— 那样多个邮箱账号会互相"重复"，注册会失败。 */
+      id: id, email: email, phone: phone || null, username: email, nickname: nickname,
       salt: ph.salt, hash: ph.hash, role: "user", intro: "",
       favorites: [], post_favorites: [], my_ingredients: [],
       created_at: new Date().toISOString()
