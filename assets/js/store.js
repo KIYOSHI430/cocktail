@@ -5,7 +5,7 @@
   "use strict";
 
   var KEY = "cocktail_app_v1";
-  var DATA_VERSION = 3;
+  var DATA_VERSION = 4;   // v4：新增拼音索引与勘误表
   var state = null;
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -59,7 +59,25 @@
       r.image = seedImg || "";
     }
     r.imageThumb = r.image ? (r.imageThumb || thumbFor(r.image)) : "";
+    var py = pinyinOf("recipes", r.id);
+    r.py = py.p;
+    r.initial = py.i;
     return r;
+  }
+
+  /** 读取种子里的拼音索引，格式 "jinjiu|J" */
+  function pinyinOf(kind, id) {
+    var block = (window.SEED.pinyin || {})[kind] || {};
+    var raw = block[id];
+    if (!raw) return { p: "", i: "#" };
+    var parts = String(raw).split("|");
+    return { p: parts[0] || "", i: parts[1] || "#" };
+  }
+
+  /** 材料带上拼音字段（用于首字母排序与拼音搜索） */
+  function decorateIngredient(i) {
+    var py = pinyinOf("ingredients", i.id);
+    return Object.assign({}, i, { py: py.p, initial: py.i, akaPy: String(i.aka || "").toLowerCase() });
   }
 
   /** 演示图库支持在后面加 /preview 取小图，其它图源直接用原图 */
@@ -75,6 +93,7 @@
       recipes: clone(window.SEED.recipes).map(normalizeRecipe),
       users: clone(window.SEED.users).map(normalizeUser),
       comments: seedComments(),
+      reports: [],
       settings: clone(window.SEED.settings),
       sessionUserId: null,
       guestIngredients: []
@@ -114,6 +133,7 @@
 
     s.settings = Object.assign(clone(window.SEED.settings), s.settings || {});
     if (!Array.isArray(s.comments)) s.comments = seedComments();
+    if (!Array.isArray(s.reports)) s.reports = [];
 
     // 站点更名：只有还停留在旧名字时才跟着改，你自己设过的名字不会被覆盖
     if (s.settings.siteName === "今晚喝什么") s.settings.siteName = "鸡尾酒法典";
@@ -129,12 +149,14 @@
       if (raw) {
         var parsed = JSON.parse(raw);
         if (parsed && parsed.ingredients && parsed.recipes) {
-          state = (parsed.version || 1) < DATA_VERSION ? migrate(parsed) : parsed;
+          var oldVersion = parsed.version || 1;   // 先记下旧版本，migrate 会改写 version
+          state = oldVersion < DATA_VERSION ? migrate(parsed) : parsed;
           state.settings = Object.assign(clone(window.SEED.settings), state.settings || {});
           state.comments = state.comments || [];
+          state.reports = state.reports || [];
           state.users.forEach(normalizeUser);
           state.recipes.forEach(normalizeRecipe);
-          if ((parsed.version || 1) < DATA_VERSION) persist();
+          if (oldVersion < DATA_VERSION) persist();
           return;
         }
       }
@@ -223,7 +245,7 @@
   /* ---------------- 材料 ---------------- */
 
   function listIngredients() {
-    return state.ingredients.slice();
+    return state.ingredients.map(decorateIngredient);
   }
 
   function getIngredient(id) {
@@ -507,7 +529,7 @@
     user: [
       "browse", "favorite",
       "publishRecipe", "editOwnRecipe", "deleteOwnRecipe",
-      "suggestVideo", "comment", "deleteOwnComment"
+      "suggestVideo", "comment", "deleteOwnComment", "report"
     ]
   };
 
@@ -524,6 +546,7 @@
     if (action === "editOwnRecipe" && !s.allowUserEditOwnRecipe) return false;
     if (action === "deleteOwnRecipe" && !s.allowUserDeleteOwnRecipe) return false;
     if (action === "deleteOwnComment" && !s.allowUserDeleteOwnComment) return false;
+    if (action === "report" && s.allowUserReport === false) return false;
     return true;
   }
 
@@ -718,13 +741,106 @@
 
   /* ================= 检索 ================= */
 
+  /* ================= 勘误（用户报错，管理员处理） ================= */
+
+  var REPORT_TYPES = ["图片有误", "材料有误", "用量有误", "步骤有误", "标签有误", "材料库有误", "其他问题"];
+
+  function reportTypes() { return REPORT_TYPES.slice(); }
+
+  function addReport(recipeId, data) {
+    var me = currentUser();
+    if (!me) return { ok: false, msg: "请先登录后再提交勘误" };
+    if (!can("report")) return { ok: false, msg: "管理员暂时关闭了勘误提交" };
+    var content = String((data && data.content) || "").trim();
+    if (content.length < 4) return { ok: false, msg: "请把问题写得再具体一点（至少 4 个字）" };
+    if (content.length > 300) return { ok: false, msg: "说明最多 300 个字" };
+    var r = recipeId ? getRecipe(recipeId) : null;
+    if (recipeId && !r) return { ok: false, msg: "配方不存在" };
+    var rep = {
+      id: newId("rep"),
+      recipeId: recipeId || null,
+      recipeName: r ? r.name : "材料库",
+      type: REPORT_TYPES.indexOf(data.type) >= 0 ? data.type : "其他问题",
+      content: content,
+      suggest: String((data && data.suggest) || "").trim().slice(0, 200),
+      userId: me.id, username: me.username, nickname: me.nickname || me.username,
+      status: "pending", createdAt: new Date().toISOString(),
+      handledBy: "", handledAt: ""
+    };
+    state.reports.push(rep);
+    persist();
+    return { ok: true, report: rep };
+  }
+
+  function decorateReport(rep) {
+    var out = Object.assign({}, rep);
+    var u = state.users.filter(function (x) { return x.id === rep.userId; })[0];
+    out.userIsAdmin = !!(u && u.role === "admin");
+    return out;
+  }
+
+  function listReports(options) {
+    options = options || {};
+    var list = (state.reports || []).slice();
+    if (options.status && options.status !== "all") list = list.filter(function (r) { return r.status === options.status; });
+    if (options.recipeId) list = list.filter(function (r) { return r.recipeId === options.recipeId; });
+    var q = String(options.q || "").trim().toLowerCase();
+    if (q) {
+      list = list.filter(function (r) {
+        return [r.content, r.suggest, r.recipeName, r.username, r.type].join(" ").toLowerCase().indexOf(q) >= 0;
+      });
+    }
+    list.sort(function (a, b) {
+      if (a.status === "pending" && b.status !== "pending") return -1;
+      if (b.status === "pending" && a.status !== "pending") return 1;
+      return String(b.createdAt).localeCompare(String(a.createdAt));
+    });
+    return list.map(decorateReport);
+  }
+
+  function reportStats() {
+    var list = state.reports || [];
+    var today = new Date().toISOString().slice(0, 10);
+    return {
+      total: list.length,
+      pending: list.filter(function (r) { return r.status === "pending"; }).length,
+      done: list.filter(function (r) { return r.status === "done"; }).length,
+      ignored: list.filter(function (r) { return r.status === "ignored"; }).length,
+      today: list.filter(function (r) { return String(r.createdAt).slice(0, 10) === today; }).length
+    };
+  }
+
+  function updateReport(id, patch) {
+    var me = currentUser();
+    if (!me || me.role !== "admin") return { ok: false, msg: "只有管理员可以处理勘误" };
+    var rep = (state.reports || []).filter(function (x) { return x.id === id; })[0];
+    if (!rep) return { ok: false, msg: "记录不存在" };
+    if (patch.status) {
+      rep.status = patch.status;
+      rep.handledBy = me.username;
+      rep.handledAt = new Date().toISOString();
+    }
+    if (typeof patch.note === "string") rep.note = patch.note;
+    persist();
+    return { ok: true, report: rep };
+  }
+
+  function deleteReport(id) {
+    var me = currentUser();
+    if (!me || me.role !== "admin") return { ok: false, msg: "只有管理员可以删除" };
+    state.reports = (state.reports || []).filter(function (x) { return x.id !== id; });
+    persist();
+    return { ok: true };
+  }
+
   /** 材料检索：支持名称、英文别名、分类，多个关键词用空格分隔 */
   function searchIngredients(q, cat) {
     var terms = String(q || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
-    return state.ingredients.filter(function (i) {
+    return state.ingredients.map(decorateIngredient).filter(function (i) {
       if (cat && cat !== "全部" && i.cat !== cat) return false;
       if (!terms.length) return true;
-      var hay = [i.name, i.aka, i.cat, i.emoji].join(" ").toLowerCase();
+      // 中文名 / 英文别名 / 拼音全拼 / 拼音首字母 都能搜到
+      var hay = [i.name, i.aka, i.cat, i.emoji, i.py, i.initial].join(" ").toLowerCase();
       return terms.every(function (t) { return hay.indexOf(t) >= 0; });
     });
   }
@@ -769,7 +885,7 @@
     if (terms.length) {
       list = list.filter(function (r) {
         var ingText = r.ingredients.map(function (x) { return ingredientName(x.id); }).join(" ");
-        var hay = [r.name, r.en, r.desc, r.author, r.glass, r.abv, ingText].join(" ").toLowerCase();
+        var hay = [r.name, r.en, r.desc, r.author, r.glass, r.abv, ingText, r.py, r.initial].join(" ").toLowerCase();
         return terms.every(function (t) { return hay.indexOf(t) >= 0; });
       });
     }
@@ -907,6 +1023,7 @@
       state = (parsed.version || 1) < DATA_VERSION ? migrate(parsed) : parsed;
       state.settings = Object.assign(clone(window.SEED.settings), state.settings || {});
       state.comments = state.comments || [];
+      state.reports = state.reports || [];
       state.users.forEach(normalizeUser);
       state.recipes.forEach(normalizeRecipe);
       state.sessionUserId = null;
@@ -994,6 +1111,14 @@
     tagCounts: tagCounts,
     randomRecipe: randomRecipe,
     storageInfo: storageInfo,
+
+    // 勘误
+    reportTypes: reportTypes,
+    addReport: addReport,
+    listReports: listReports,
+    reportStats: reportStats,
+    updateReport: updateReport,
+    deleteReport: deleteReport,
 
     // 设置与数据
     getSettings: getSettings,

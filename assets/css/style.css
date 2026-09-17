@@ -234,14 +234,19 @@ main { max-width: 1180px; margin: 0 auto; padding: 26px 22px 70px; }
 .art-img {
   position: absolute; inset: 0; width: 100%; height: 100%;
   object-fit: cover; background: var(--panel-2);
+  opacity: 0; transition: opacity .45s ease, transform .6s cubic-bezier(.2, .7, .3, 1);
 }
+.art-img.loaded { opacity: 1; }
+.card:hover .art-img.loaded { transform: scale(1.055); }
 .art-img.failed { display: none; }
 .card-art:has(.art-img:not(.failed)) .emoji { display: none; }
 
 .detail-hero { position: relative; overflow: hidden; }
 .detail-hero .hero-img {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  opacity: 0; transition: opacity .5s ease;
 }
+.detail-hero .hero-img.loaded { opacity: 1; }
 .detail-hero .hero-img.failed { display: none; }
 .detail-hero:has(.hero-img:not(.failed)) > span { display: none; }
 .detail-hero .hero-change { position: absolute; right: 8px; bottom: 8px; z-index: 3; }
@@ -407,16 +412,43 @@ main { max-width: 1180px; margin: 0 auto; padding: 26px 22px 70px; }
 
 .cat-block { margin-bottom: 16px; }
 .cat-block h3 { font-size: 14px; color: var(--text-2); margin-bottom: 8px; }
-.ing-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* 材料按「大类 → 首字母」分组，用网格排，整齐不散 */
+.letter-group { display: flex; gap: 10px; align-items: flex-start; padding: 5px 0; }
+.letter-group .letter {
+  flex: 0 0 22px; text-align: center; padding-top: 8px;
+  font-family: var(--serif); font-size: 13px; letter-spacing: .06em;
+  color: var(--amber); opacity: .8;
+}
+.ing-picker {
+  flex: 1; display: grid; gap: 7px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.ing-picker.wrap { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
 .ing-chip {
-  display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit;
+  display: flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit;
   padding: 7px 12px; border-radius: 999px; font-size: 13px;
   background: var(--panel-2); border: 1px solid var(--line); color: var(--text-2);
+  text-align: left; min-width: 0; transition: transform .14s ease, border-color .14s ease, background .14s ease, color .14s ease;
 }
 .ing-chip:hover { border-color: #55483e; color: var(--text); }
 .ing-chip.on { background: rgba(224, 169, 74, .18); border-color: var(--amber); color: var(--amber-2); }
+.ing-chip .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ing-chip:hover { transform: translateY(-1px); }
 .ing-chip.hide { display: none; }
 .ing-picker.wrap { max-height: 260px; overflow: auto; padding: 2px; }
+
+.picker-foot { margin-top: 14px; line-height: 1.7; }
+.link-btn {
+  background: none; border: none; padding: 0; cursor: pointer; font: inherit;
+  color: var(--amber-2); text-decoration: underline; text-underline-offset: 3px;
+}
+.link-btn:hover { color: var(--amber); }
+
+.tab-badge {
+  font-style: normal; margin-left: 5px; padding: 0 6px; border-radius: 999px;
+  background: var(--amber); color: #221a06; font-size: 11px; font-weight: 700;
+}
 
 .result-block { margin-bottom: 20px; }
 .result-block h3 { margin-bottom: 4px; }
@@ -624,6 +656,62 @@ footer {
 
 /* ============ 平板 / 窄屏 ============ */
 
+/* ============ 动效 ============ */
+
+@keyframes viewIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(12px) scale(.97); }
+  to { opacity: 1; transform: none; }
+}
+
+#view > * { animation: viewIn .42s cubic-bezier(.22, .75, .28, 1) both; }
+#view > *:nth-child(2) { animation-delay: .06s; }
+#view > *:nth-child(3) { animation-delay: .11s; }
+#view > *:nth-child(4) { animation-delay: .16s; }
+#view > *:nth-child(n+5) { animation-delay: .2s; }
+
+.grid .card { animation: cardIn .4s cubic-bezier(.22, .75, .28, 1) both; }
+.grid .card:nth-child(2) { animation-delay: .03s; }
+.grid .card:nth-child(3) { animation-delay: .06s; }
+.grid .card:nth-child(4) { animation-delay: .09s; }
+.grid .card:nth-child(5) { animation-delay: .12s; }
+.grid .card:nth-child(6) { animation-delay: .15s; }
+.grid .card:nth-child(7) { animation-delay: .18s; }
+.grid .card:nth-child(8) { animation-delay: .21s; }
+.grid .card:nth-child(n+9) { animation-delay: .24s; }
+
+.modal-box { animation: modalIn .28s cubic-bezier(.22, .75, .28, 1) both; }
+
+.btn { transition: transform .16s ease, filter .16s ease, box-shadow .16s ease, background .16s ease; }
+.btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0, 0, 0, .28); }
+.btn:active { transform: translateY(0) scale(.985); }
+
+.chip, .tag-chip, .tag-pill, .tag-mini, .mini-btn {
+  transition: transform .16s ease, color .16s ease, border-color .16s ease, background .16s ease;
+}
+.tag-chip:hover, .tag-pill:hover { transform: translateY(-1px); }
+
+.drawer-nav a { transition: background .2s ease, color .2s ease; }
+.drawer-nav a:hover { background: rgba(255, 255, 255, .035); }
+
+.panel, .card, .stat { transition: box-shadow .2s ease, border-color .2s ease, transform .2s ease; }
+.stat:hover { transform: translateY(-2px); border-color: #55483e; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}
+
 @media (max-width: 900px) {
   .detail { grid-template-columns: 1fr; }
   .detail-hero { height: 200px; }
@@ -703,6 +791,11 @@ footer {
   .tag-selected { font-size: 12.5px; }
 
   .selected-bar { padding: 10px; }
+  /* 手机上材料固定两列，避免一个材料占一整行 */
+  .ing-picker, .ing-picker.wrap { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+  .letter-group { gap: 8px; }
+  .letter-group .letter { flex: 0 0 18px; font-size: 12px; }
+  .ing-chip { padding: 7px 10px; font-size: 12.5px; }
   .form .row { gap: 10px; }
   .field { flex: 1 1 100%; }
   .picker-tools { flex-wrap: wrap; }

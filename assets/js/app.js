@@ -11,6 +11,7 @@
   var adminTab = "ingredients";
   var adminCommentQuery = "";
   var adminCommentOnlyHidden = false;
+  var reportFilter = { status: "pending", q: "" };
   var draft = { ingredients: [], search: "", cat: "全部" };
   var draftTags = [];
   var modalTags = [];
@@ -213,7 +214,7 @@
       return '<button class="tag-mini" data-action="open-tag" data-value="' + esc(t) + '">' + esc(t) + "</button>";
     }).join("") + ((r.tags || []).length > 3 ? '<span class="tag-mini more">+' + (r.tags.length - 3) + "</span>" : "");
     var img = r.imageThumb
-      ? '<img class="art-img" src="' + esc(r.imageThumb) + '" alt="' + esc(r.name) + '" loading="lazy" onerror="this.classList.add(\'failed\')">'
+      ? '<img class="art-img" src="' + esc(r.imageThumb) + '" alt="' + esc(r.name) + '" loading="lazy" onload="this.classList.add(\'loaded\')" onerror="this.classList.add(\'failed\')">'
       : "";
     return '<article class="card" data-id="' + r.id + '">' +
       '<div class="card-art" style="' + grad(r.color) + '" data-action="open-recipe" data-id="' + r.id + '">' +
@@ -365,7 +366,7 @@
       '<a class="back" href="#/recipes">← 返回配方库</a>' +
       '<section class="detail">' +
         '<div class="detail-hero" style="' + grad(r.color) + '">' +
-          (r.image ? '<img class="hero-img" src="' + esc(r.image) + '" alt="' + esc(r.name) + '" onerror="this.classList.add(\'failed\')">' : "") +
+          (r.image ? '<img class="hero-img" src="' + esc(r.image) + '" alt="' + esc(r.name) + '" onload="this.classList.add(\'loaded\')" onerror="this.classList.add(\'failed\')">' : "") +
           '<span>' + esc(r.emoji || "🍹") + "</span>" +
           (me && me.role === "admin" ? '<button class="btn ghost sm hero-change" data-action="set-image" data-id="' + r.id + '">🖼 图片 / 标签</button>' : "") +
         "</div>" +
@@ -389,6 +390,7 @@
           '<div class="detail-actions">' +
             '<button class="btn ' + (Store.isFavorite(r.id) ? "" : "ghost") + '" data-action="toggle-fav" data-id="' + r.id + '">' + (Store.isFavorite(r.id) ? "★ 已收藏" : "☆ 收藏") + "</button>" +
             (Store.can("suggestVideo") ? '<button class="btn ghost" data-action="add-video" data-id="' + r.id + '">🎬 推荐 / 修改视频</button>' : "") +
+            '<button class="btn ghost" data-action="report" data-id="' + r.id + '">⚠️ 勘误</button>' +
             (canDelete ? '<button class="btn ghost danger" data-action="delete-recipe" data-id="' + r.id + '">删除</button>' : "") +
           "</div>" +
           '<h2>需要的材料</h2><ul class="ing-list">' + ingHTML + "</ul>" +
@@ -644,6 +646,8 @@
           "</div>" +
           '<div class="selected-bar" id="selectedBar"></div>' +
           '<div id="ingPickerWrap"></div>' +
+          '<p class="mute-text picker-foot">材料按大类分组、组内按拼音首字母 A→Z 排列；搜「jinjiu」也能搜到金酒。' +
+          '发现材料缺失或写错？<button class="link-btn" data-action="report">提交勘误</button></p>' +
         "</section>" +
         '<section class="panel results-panel">' +
           '<div class="panel-head"><h2>能调的酒</h2><span id="matchCount" class="mute-text"></span></div>' +
@@ -681,15 +685,32 @@
     var html = Store.categories().map(function (cat) {
       var items = list.filter(function (i) { return i.cat === cat; });
       if (!items.length) return "";
+      // 大类内按拼音首字母 A→Z 排序，同首字母的再按全拼排
+      items.sort(function (a, b) {
+        if (a.initial !== b.initial) return String(a.initial).localeCompare(String(b.initial));
+        return String(a.py).localeCompare(String(b.py));
+      });
       var chosen = items.filter(function (i) { return selected[i.id]; }).length;
+      // 再按首字母切成小组，显出 A / B / C 的次序
+      var groups = [];
+      items.forEach(function (i) {
+        var last = groups[groups.length - 1];
+        if (!last || last.letter !== i.initial) { last = { letter: i.initial, items: [] }; groups.push(last); }
+        last.items.push(i);
+      });
       return '<div class="cat-block" data-cat="' + esc(cat) + '">' +
         '<h3><span>' + esc(cat) + '</span> <span class="mute-text">' + chosen + "/" + items.length + "</span>" +
         '<button class="mini-btn" data-action="match-cat-all">全选</button>' +
         '<button class="mini-btn" data-action="match-cat-none">取消</button></h3>' +
-        '<div class="ing-picker">' + items.map(function (i) {
-          return '<button class="ing-chip ' + (selected[i.id] ? "on" : "") + '" data-action="match-toggle" data-id="' + i.id + '" title="' + esc(i.aka || "") + '">' +
-            '<span class="e">' + esc(i.emoji || "🍹") + "</span>" + esc(i.name) + "</button>";
-        }).join("") + "</div></div>";
+        groups.map(function (g) {
+          return '<div class="letter-group"><span class="letter">' + esc(g.letter) + "</span>" +
+            '<div class="ing-picker">' + g.items.map(function (i) {
+              return '<button class="ing-chip ' + (selected[i.id] ? "on" : "") + '" data-action="match-toggle" data-id="' + i.id +
+                '" title="' + esc(i.aka || i.name) + '"><span class="e">' + esc(i.emoji || "🍹") + "</span>" +
+                '<span class="nm">' + esc(i.name) + "</span></button>";
+            }).join("") + "</div></div>";
+        }).join("") +
+        "</div>";
     }).join("");
     wrap.innerHTML = html || '<div class="empty sm">没有找到匹配的材料，换个关键词试试。</div>';
   }
@@ -953,12 +974,14 @@
     }
     var tabs = [
       ["ingredients", "材料管理"], ["recipes", "配方管理"], ["comments", "评论管理"],
-      ["users", "用户管理"], ["settings", "站点设置"], ["data", "数据备份"]
+      ["reports", "勘误处理"], ["users", "用户管理"], ["settings", "站点设置"], ["data", "数据备份"]
     ];
+    var pendingReports = Store.reportStats().pending;
     view.innerHTML =
       '<section class="page-head"><h1>管理后台</h1><p>材料、配方、评论、用户都由你说了算，所有改动即时生效。</p></section>' +
       '<nav class="tabs">' + tabs.map(function (t) {
-        return '<button class="tab ' + (adminTab === t[0] ? "on" : "") + '" data-action="admin-tab" data-value="' + t[0] + '">' + t[1] + "</button>";
+        var badge = (t[0] === "reports" && pendingReports) ? ' <em class="tab-badge">' + pendingReports + "</em>" : "";
+        return '<button class="tab ' + (adminTab === t[0] ? "on" : "") + '" data-action="admin-tab" data-value="' + t[0] + '">' + t[1] + badge + "</button>";
       }).join("") + "</nav>" +
       '<section id="adminBody" class="panel">' + adminBodyHTML() + "</section>";
   }
@@ -967,6 +990,7 @@
     if (adminTab === "ingredients") return adminIngredientsHTML();
     if (adminTab === "recipes") return adminRecipesHTML();
     if (adminTab === "comments") return adminCommentsHTML();
+    if (adminTab === "reports") return adminReportsHTML();
     if (adminTab === "users") return adminUsersHTML();
     if (adminTab === "settings") return adminSettingsHTML();
     return adminDataHTML();
@@ -1070,6 +1094,52 @@
       '<div id="adminCommentList">' + adminCommentListHTML() + "</div>";
   }
 
+  function adminReportListHTML() {
+    var list = Store.listReports({ status: reportFilter.status, q: reportFilter.q });
+    if (!list.length) return '<div class="empty sm">没有符合条件的勘误记录</div>';
+    var rows = list.map(function (r) {
+      var status = r.status === "pending" ? '<span class="badge warn">待处理</span>'
+        : r.status === "done" ? '<span class="badge ok">已处理</span>' : '<span class="badge mute">已忽略</span>';
+      var where = r.recipeId
+        ? '<a href="#/recipe/' + r.recipeId + '">' + esc(r.recipeName) + "</a>"
+        : '<span class="mute-text">材料库</span>';
+      return "<tr>" +
+        "<td>" + esc(r.type) + "</td>" +
+        '<td class="c-cell">' + esc(r.content) +
+          (r.suggest ? '<div class="mute-text">建议：' + esc(r.suggest) + "</div>" : "") + "</td>" +
+        "<td>" + esc(r.nickname || r.username) + "</td>" +
+        "<td>" + where + "</td>" +
+        '<td class="mute-text">' + timeAgo(r.createdAt) + "</td>" +
+        "<td>" + status + (r.handledBy ? '<div class="mute-text">by ' + esc(r.handledBy) + "</div>" : "") + "</td>" +
+        '<td class="ops">' +
+          (r.status !== "done" ? '<button class="btn ghost sm" data-action="report-done" data-id="' + r.id + '">标记已处理</button>' : "") +
+          (r.status !== "ignored" ? '<button class="btn ghost sm" data-action="report-ignore" data-id="' + r.id + '">忽略</button>' : "") +
+          (r.status !== "pending" ? '<button class="btn ghost sm" data-action="report-reopen" data-id="' + r.id + '">重新打开</button>' : "") +
+          '<button class="btn ghost sm danger" data-action="report-del" data-id="' + r.id + '">删除</button>' +
+        "</td></tr>";
+    }).join("");
+    return '<div class="table-wrap"><table class="table"><thead><tr>' +
+      "<th>类型</th><th>问题说明</th><th>提交人</th><th>位置</th><th>时间</th><th>状态</th><th>操作</th>" +
+      "</tr></thead><tbody>" + rows + "</tbody></table></div>";
+  }
+
+  function adminReportsHTML() {
+    var s = Store.reportStats();
+    var chips = [["pending", "待处理"], ["done", "已处理"], ["ignored", "已忽略"], ["all", "全部"]];
+    return "<h3>勘误概览</h3>" +
+      '<div class="stats-row">' + statBox(s.pending, "待处理") + statBox(s.done, "已处理") +
+      statBox(s.ignored, "已忽略") + statBox(s.today, "今日新增") + statBox(s.total, "累计") + "</div>" +
+      '<p class="mute-text">用户在配方页点「⚠️ 勘误」提交的问题都会汇总到这里。核对完配方记得改一下，再点「标记已处理」。</p>' +
+      '<div class="row tight">' +
+        '<div class="chips">' + chips.map(function (c) {
+          return '<button class="chip ' + (reportFilter.status === c[0] ? "on" : "") +
+            '" data-action="report-filter" data-value="' + c[0] + '">' + c[1] + "</button>";
+        }).join("") + "</div>" +
+        '<input id="repQ" class="input search" placeholder="搜索说明 / 用户 / 配方名" value="' + esc(reportFilter.q) + '">' +
+      "</div>" +
+      '<div id="adminReportList">' + adminReportListHTML() + "</div>";
+  }
+
   function adminUsersHTML() {
     var me = Store.currentUser();
     var rows = Store.users().map(function (u) {
@@ -1126,6 +1196,7 @@
           switchRow("allowUserEditOwnRecipe", "允许用户编辑自己发布的配方", s.allowUserEditOwnRecipe) +
           switchRow("allowUserDeleteOwnRecipe", "允许用户删除自己发布的配方", s.allowUserDeleteOwnRecipe) +
           switchRow("allowUserDeleteOwnComment", "允许用户删除自己的评论", s.allowUserDeleteOwnComment) +
+          switchRow("allowUserReport", "允许用户提交勘误（报错）", s.allowUserReport !== false) +
         "</div>" +
         '<div class="form-foot"><button class="btn" type="submit">保存设置</button></div>' +
       "</form>";
@@ -1322,6 +1393,16 @@
       }
       case "comment-reset": adminCommentQuery = ""; adminCommentOnlyHidden = false; refreshAdmin(); break;
 
+      /* 勘误处理（后台） */
+      case "report-filter": reportFilter.status = value; refreshAdmin(); break;
+      case "report-done": Store.updateReport(id, { status: "done" }); toast("已标记为处理完成"); refreshAdmin(); break;
+      case "report-ignore": Store.updateReport(id, { status: "ignored" }); toast("已忽略"); refreshAdmin(); break;
+      case "report-reopen": Store.updateReport(id, { status: "pending" }); toast("已重新打开"); refreshAdmin(); break;
+      case "report-del": {
+        if (!confirm("确定删除这条勘误记录吗？")) break;
+        Store.deleteReport(id); toast("已删除"); refreshAdmin(); break;
+      }
+
       /* 我有啥 */
       case "match-toggle": {
         var ids = Store.getMyIngredients();
@@ -1393,6 +1474,27 @@
             '<label class="field"><span>视频标题</span><input class="input" name="videoName" value="' + esc(rec ? rec.videoName : "") + '" placeholder="例如：B 站 · 手把手教学"></label>' +
             '<p class="mute-text">保存后所有用户都能在这个配方页看到它。</p>' +
             '<div class="form-foot"><button class="btn" type="submit">保存</button><button type="button" class="btn ghost" data-action="close-modal">取消</button></div>' +
+          "</form>"
+        );
+        break;
+      }
+      case "report": {
+        var repRecipe = id ? Store.getRecipe(id) : null;
+        var meNow = Store.currentUser();
+        if (!meNow) { toast("登录后就能提交勘误"); authModal("login"); break; }
+        if (!Store.can("report")) { toast("管理员暂时关闭了勘误提交"); break; }
+        openModal(
+          "<h2>提交勘误</h2>" +
+          '<p class="mute-text">发现' + (repRecipe ? "「" + esc(repRecipe.name) + "」" : "材料库") +
+          "有写错的地方？告诉我们，管理员会核对修改。</p>" +
+          '<form id="reportForm" class="form" data-id="' + (id || "") + '">' +
+            '<label class="field"><span>问题类型</span><select class="input" name="type">' +
+              Store.reportTypes().map(function (t) { return '<option value="' + esc(t) + '">' + esc(t) + "</option>"; }).join("") +
+            "</select></label>" +
+            '<label class="field"><span>问题说明 *</span><textarea class="input" name="content" rows="3" maxlength="300" placeholder="例如：图片不是这杯酒；材料里写的 25ml 应该是 20ml"></textarea></label>' +
+            '<label class="field"><span>建议改成（选填）</span><input class="input" name="suggest" maxlength="200" placeholder="把你认为正确的内容写在这里"></label>' +
+            '<div class="form-foot"><button class="btn" type="submit">提交勘误</button>' +
+            '<button type="button" class="btn ghost" data-action="close-modal">取消</button></div>' +
           "</form>"
         );
         break;
@@ -1580,6 +1682,16 @@
       if (currentRoute().name === "admin") refreshAdmin(); else render();
       return;
     }
+    if (form.id === "reportForm") {
+      var fdR = new FormData(form);
+      var rres = Store.addReport(form.getAttribute("data-id") || null, {
+        type: fdR.get("type"), content: fdR.get("content"), suggest: fdR.get("suggest")
+      });
+      if (!rres.ok) { toast(rres.msg); return; }
+      closeModal();
+      toast("勘误已提交，谢谢！管理员会尽快核对");
+      return;
+    }
     if (form.id === "settingsForm") {
       var fd5 = new FormData(form);
       Store.updateSettings({
@@ -1591,7 +1703,8 @@
         allowUserComment: !!fd5.get("allowUserComment"),
         allowUserEditOwnRecipe: !!fd5.get("allowUserEditOwnRecipe"),
         allowUserDeleteOwnRecipe: !!fd5.get("allowUserDeleteOwnRecipe"),
-        allowUserDeleteOwnComment: !!fd5.get("allowUserDeleteOwnComment")
+        allowUserDeleteOwnComment: !!fd5.get("allowUserDeleteOwnComment"),
+        allowUserReport: !!fd5.get("allowUserReport")
       });
       toast("设置已保存");
       renderHeader();
@@ -1618,6 +1731,10 @@
       adminCommentQuery = t.value;
       var box = document.getElementById("adminCommentList");
       if (box) box.innerHTML = adminCommentListHTML();
+    } else if (t.id === "repQ") {
+      reportFilter.q = t.value;
+      var rbox = document.getElementById("adminReportList");
+      if (rbox) rbox.innerHTML = adminReportListHTML();
     }
   });
 
