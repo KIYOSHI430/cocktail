@@ -609,6 +609,47 @@ async function handle(action, payload, token) {
     }
   }
 
+  /* 自检：一步一步试数据库操作，看看到底哪一步不通（部署后访问 ?action=debug 即可） */
+  if (action === "debug") {
+    const out = {};
+    try {
+      const rows = await dbSelect("users", [], { limit: 5 });
+      out.selectUsers = {
+        count: rows.length,
+        rows: rows.map(function (u) {
+          return { id: u.id, phone: u.phone, role: u.role, hasHash: !!u.hash, hashLen: (u.hash || "").length };
+        })
+      };
+    } catch (e) { out.selectUsers = "错误：" + e.message; }
+
+    try {
+      const one = await dbSelectOne("users", [{ col: "phone", val: "17345930612" }]);
+      out.findByPhone = one ? { id: one.id, role: one.role, hashLen: (one.hash || "").length } : "没找到这个手机号";
+    } catch (e) { out.findByPhone = "错误：" + e.message; }
+
+    try {
+      const sid = "debug-" + Date.now();
+      await dbInsert("sessions", { token: sid, user_id: "u-admin", expires_at: Date.now() + 60000 });
+      out.insertSession = "成功";
+      await dbDelete("sessions", sid);
+      out.deleteSession = "成功";
+    } catch (e) { out.insertSession = "错误：" + e.message; }
+
+    try {
+      await dbUpdate("users", "u-admin", { intro: "站点管理员：负责材料库、配方审核、评论管理与用户权限。" });
+      out.updateUser = "成功";
+    } catch (e) { out.updateUser = "错误：" + e.message; }
+
+    try {
+      const rows = await dbSelect("ingredients", [], { limit: 2 });
+      out.selectIngredients = rows.length;
+      const rows2 = await dbSelect("recipes", [], { limit: 2 });
+      out.selectRecipes = rows2.length;
+    } catch (e) { out.selectTables = "错误：" + e.message; }
+
+    return ok(out);
+  }
+
   const handler = HANDLERS[action];
   if (!handler) return fail("未知的 action：" + action);
   try {
@@ -616,7 +657,7 @@ async function handle(action, payload, token) {
     return await handler(payload, token, me);
   } catch (e) {
     console.error("[api] " + action + " 出错：", e);
-    return fail("服务端出错：" + e.message);
+    return fail("服务端出错（" + action + "）：" + e.message);
   }
 }
 
