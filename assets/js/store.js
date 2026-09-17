@@ -745,6 +745,9 @@
     if (u.email) u.username = u.email;
     else if (u.phone) u.username = u.phone;
     persist();
+    // 云端：管理员改别人的资料 / 角色 / 重置密码，都要写回数据库
+    cloudSync("saveUser", { id: id, patch: patch });
+    return { ok: true, user: u };
   }
 
   function deleteUser(id) {
@@ -758,6 +761,7 @@
     state.users = state.users.filter(function (u) { return u.id !== id; });
     if (state.sessionUserId === id) state.sessionUserId = null;
     persist();
+    cloudSync("deleteUser", { id: id });
     return { ok: true };
   }
 
@@ -791,6 +795,9 @@
     };
     state.ingredients.push(item);
     persist();
+    cloudSync("saveIngredient", {
+      ingredient: { id: item.id, name: item.name, cat: item.cat, emoji: item.emoji, aka: item.aka, basic: item.basic }
+    });
     return { ok: true, item: item };
   }
 
@@ -799,6 +806,9 @@
     if (!item) return { ok: false, msg: "材料不存在" };
     Object.assign(item, patch);
     persist();
+    cloudSync("saveIngredient", {
+      ingredient: { id: item.id, name: item.name, cat: item.cat, emoji: item.emoji, aka: item.aka, basic: item.basic }
+    });
     return { ok: true, item: item };
   }
 
@@ -813,6 +823,7 @@
     });
     state.ingredients = state.ingredients.filter(function (i) { return i.id !== id; });
     persist();
+    cloudSync("deleteIngredient", { id: id });
     return { ok: true, affected: affected, name: item.name };
   }
 
@@ -897,6 +908,7 @@
     if (me.role !== "admin" && r.authorId !== me.id) return { ok: false, msg: "只能修改自己发布的配方" };
     Object.assign(r, patch);
     persist();
+    cloudSync("updateRecipeFields", { id: id, patch: patch });
     return { ok: true, recipe: r };
   }
 
@@ -932,6 +944,7 @@
     r.video = String(url).trim();
     r.videoName = String(name || "").trim() || "观看教学视频";
     persist();
+    cloudSync("updateRecipeFields", { id: id, patch: { video: r.video, videoName: r.videoName } });
     return { ok: true, recipe: r };
   }
 
@@ -949,6 +962,7 @@
     r.image = url;
     r.imageThumb = url ? thumbFor(url) : "";
     persist();
+    cloudSync("updateRecipeFields", { id: id, patch: { image: r.image } });
     return { ok: true, recipe: r };
   }
 
@@ -1705,6 +1719,7 @@
     }
     if (typeof patch.note === "string") rep.note = patch.note;
     persist();
+    cloudSync("updateReport", { id: id, status: rep.status });
     return { ok: true, report: rep };
   }
 
@@ -1713,6 +1728,7 @@
     if (!me || me.role !== "admin") return { ok: false, msg: "只有管理员可以删除" };
     state.reports = (state.reports || []).filter(function (x) { return x.id !== id; });
     persist();
+    cloudSync("updateReport", { id: id, remove: true });
     return { ok: true };
   }
 

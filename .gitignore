@@ -13,3 +13,10 @@ dist/
 *.local.json
 backup/
 *.backup.json
+
+# 只放在本机、方便复制粘贴到云开发控制台的副本（和 cloud/ 里的正式文件内容一致）
+新云函数-复制这个文件的内容.js
+升级SQL-在控制台执行这个.sql
+
+# 提交信息用的临时文件
+_msg*.txt

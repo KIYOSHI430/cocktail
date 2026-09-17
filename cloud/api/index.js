@@ -593,6 +593,21 @@ async function addPostComment(payload, token, me) {
   return ok({ comment: comment });
 }
 
+/** 删帖子里的回复：本人、帖主、管理员都可以删 */
+async function deletePostComment(payload, token, me) {
+  if (!me) return fail("请先登录");
+  const post = await dbSelectOne("posts", [{ col: "id", val: payload.postId }]);
+  if (!post) return fail("帖子不存在");
+  const list = (post.comments || []).slice();
+  const c = list.filter(function (x) { return x.id === payload.commentId; })[0];
+  if (!c) return fail("回复不存在");
+  if (me.role !== "admin" && c.userId !== me.id && post.author_id !== me.id) return fail("只能删除自己的回复");
+  await dbUpdate("posts", payload.postId, {
+    comments: list.filter(function (x) { return x.id !== payload.commentId; })
+  });
+  return ok({ deleted: true });
+}
+
 async function togglePostLike(payload, token, me) {
   if (!me) return fail("登录后才能点赞");
   const post = await dbSelectOne("posts", [{ col: "id", val: payload.postId }]);
@@ -696,6 +711,141 @@ async function deleteComment(payload, token, me) {
   return ok({ deleted: true });
 }
 
+/** 管理员维护材料库：新增或修改（有 id 就是修改） */
+async function saveIngredient(payload, token, me) {
+  if (!me || me.role !== "admin") return fail("只有管理员可以维护材料库");
+  const src = payload.ingredient || {};
+  const name = String(src.name || "").trim();
+  if (!name) return fail("请填写材料名称");
+  const id = src.id || newId("ing");
+  const doc = {
+    id: id, name: name,
+    cat: String(src.cat || "").trim() || "其他",
+    emoji: src.emoji || "",
+    aka: String(src.aka || "").slice(0, 80),
+    alias: String(src.alias || "").slice(0, 120),
+    is_basic: !!src.basic,
+    py: src.py || "", initial: src.initial || "#"
+  };
+  const existed = await dbSelectOne("ingredients", [{ col: "id", val: id }]);
+  if (existed) {
+    delete doc.id;
+    await dbUpdate("ingredients", id, doc);
+  } else {
+    await dbInsert("ingredients", doc);
+  }
+  const row = await dbSelectOne("ingredients", [{ col: "id", val: id }]);
+  return ok({ ingredient: rowIngredient(row) });
+}
+
+/** 管理员删材料：顺手把引用它的配方也清一遍，否则刷新后又会冒出来 */
+async function deleteIngredient(payload, token, me) {
+  if (!me || me.role !== "admin") return fail("只有管理员可以维护材料库");
+  const ing = await dbSelectOne("ingredients", [{ col: "id", val: payload.id }]);
+  if (!ing) return fail("材料不存在");
+  const recipes = await dbSelect("recipes", [], { limit: 2000 });
+  let affected = 0;
+  for (const r of recipes) {
+    const items = Array.isArray(r.items) ? r.items : [];
+    const next = items.filter(function (x) { return x.id !== payload.id; });
+    if (next.length !== items.length) { await dbUpdate("recipes", r.id, { items: next }); affected++; }
+  }
+  await dbDelete("ingredients", payload.id);
+  return ok({ deleted: true, affected: affected, name: ing.name });
+}
+
+/** 管理员改配方：状态 / 图片 / 视频 / 标签（视频也允许普通用户补充） */
+async function updateRecipeFields(payload, token, me) {
+  if (!me) return fail("请先登录");
+  const rec = await dbSelectOne("recipes", [{ col: "id", val: payload.id }]);
+  if (!rec) return fail("配方不存在");
+  const isAdmin = me.role === "admin";
+  if (!isAdmin && rec.author_id !== me.id) return fail("只能修改自己发布的配方");
+
+  const patch = payload.patch || {};
+  const doc = {};
+  if (typeof patch.image === "string") {
+    if (!isAdmin) return fail("只有管理员可以修改配方图片");
+    doc.image = patch.image.slice(0, 400000);
+  }
+  if (typeof patch.video === "string") {
+    const settings = await getSettings();
+    if (!isAdmin && settings.allowUserVideo === false) return fail("管理员暂时关闭了用户补充视频");
+    doc.video = patch.video.slice(0, 500);
+    if (patch.videoName !== undefined) doc.video_name = String(patch.videoName).slice(0, 60);
+  } else if (typeof patch.videoName === "string") {
+    doc.video_name = patch.videoName.slice(0, 60);
+  }
+  if (Array.isArray(patch.tags)) doc.tags = patch.tags.slice(0, 10);
+  if (typeof patch.status === "string") {
+    if (!isAdmin) return fail("只有管理员可以修改配方状态");
+    doc.status = patch.status;
+  }
+  if (!Object.keys(doc).length) return ok({ updated: false });
+  await dbUpdate("recipes", payload.id, doc);
+  const row = await dbSelectOne("recipes", [{ col: "id", val: payload.id }]);
+  return ok({ recipe: rowRecipe(row) });
+}
+
+/** 管理员管理用户：改昵称 / 简介 / 邮箱 / 角色 / 重置密码 */
+async function saveUser(payload, token, me) {
+  if (!me || me.role !== "admin") return fail("只有管理员可以管理用户");
+  const id = payload.id;
+  const patch = payload.patch || {};
+  const target = await dbSelectOne("users", [{ col: "id", val: id }]);
+  if (!target) return fail("用户不存在");
+
+  const doc = {};
+  if (patch.nickname !== undefined) doc.nickname = String(patch.nickname).slice(0, 12);
+  if (patch.intro !== undefined) doc.intro = String(patch.intro).slice(0, 100);
+  if (patch.email !== undefined) {
+    const email = normEmail(patch.email);
+    if (!EMAIL_RE.test(email)) return fail("邮箱格式不正确");
+    const other = await dbSelectOne("users", [{ col: "email", val: email }]);
+    if (other && other.id !== id) return fail("这个邮箱已经被别的账号用了");
+    doc.email = email;
+    doc.username = email;
+  }
+  if (patch.role !== undefined) {
+    const role = patch.role === "admin" ? "admin" : "user";
+    if (target.role === "admin" && role !== "admin") {
+      const admins = await dbSelect("users", [{ col: "role", val: "admin" }]);
+      if (admins.length <= 1) return fail("至少要保留一个管理员");
+    }
+    doc.role = role;
+  }
+  if (patch.password) {
+    const pw = String(patch.password);
+    if (pw.length < 6) return fail("密码至少 6 位");
+    const ph = hashPassword(pw);
+    doc.salt = ph.salt;
+    doc.hash = ph.hash;
+  }
+  if (!Object.keys(doc).length) return ok({ updated: false });
+  await dbUpdate("users", id, doc);
+  const row = await dbSelectOne("users", [{ col: "id", val: id }]);
+  return ok({ user: { id: row.id, nickname: row.nickname, email: row.email || "", role: row.role } });
+}
+
+/** 管理员删用户：不能删自己，也不能把最后一个管理员删掉 */
+async function deleteUser(payload, token, me) {
+  if (!me || me.role !== "admin") return fail("只有管理员可以管理用户");
+  const id = payload.id;
+  if (id === me.id) return fail("不能删除当前登录的账号");
+  const target = await dbSelectOne("users", [{ col: "id", val: id }]);
+  if (!target) return fail("用户不存在");
+  if (target.role === "admin") {
+    const admins = await dbSelect("users", [{ col: "role", val: "admin" }]);
+    if (admins.length <= 1) return fail("至少要保留一个管理员");
+  }
+  try {
+    const { error } = await rdb().from("sessions").delete().eq("user_id", id);
+    if (error) throw toError(error);
+  } catch (e) { /* 会话清不掉不影响删号 */ }
+  await dbDelete("users", id);
+  return ok({ deleted: true });
+}
+
 async function toggleCommentLike(payload, token, me) {
   if (!me) return fail("登录后才能点赞");
   const c = await dbSelectOne("comments", [{ col: "id", val: payload.id }]);
@@ -783,11 +933,17 @@ const HANDLERS = {
   toggleFavorite: toggleFavorite,
   addPost: addPost,
   addPostComment: addPostComment,
+  deletePostComment: deletePostComment,
   togglePostLike: togglePostLike,
   setPostStatus: setPostStatus,
   deletePost: deletePost,
   saveRecipe: saveRecipe,
   deleteRecipe: deleteRecipe,
+  updateRecipeFields: updateRecipeFields,
+  saveIngredient: saveIngredient,
+  deleteIngredient: deleteIngredient,
+  saveUser: saveUser,
+  deleteUser: deleteUser,
   addComment: addComment,
   deleteComment: deleteComment,
   toggleCommentLike: toggleCommentLike,
