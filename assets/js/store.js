@@ -181,7 +181,11 @@
   /** 云端整套数据落到本地内存（并写一份缓存） */
   function applyBootstrap(data) {
     if (data.ingredients) state.ingredients = data.ingredients;
-    if (data.recipes) state.recipes = data.recipes;
+    /* 云端数据也要过一遍 normalizeRecipe：
+       它会补上 imageThumb（列表卡片的缩略图）、tags、status 等派生字段。
+       少了这一步，云端来的配方在配方库里就只会显示 emoji（本地缓存有字段，
+       所以刷新时能闪一下图，然后被云端数据覆盖又变回 emoji）。 */
+    if (data.recipes) state.recipes = data.recipes.map(normalizeRecipe);
     if (data.posts) state.posts = data.posts;
     if (data.comments) state.comments = data.comments;
     if (data.settings) state.settings = Object.assign(clone(window.SEED.settings), data.settings);
@@ -320,15 +324,18 @@
     r.steps = r.steps || [];
     // 标签：老数据没有 tags 字段时，从种子表里补
     if (!Array.isArray(r.tags)) r.tags = (window.SEED.tags || {})[r.id] || [];
-    // 只在"从未设置过图片"时补演示图（管理员换过图或手动清空过的都不会被覆盖）
-    if (typeof r.image === "undefined") {
-      var seedImg = (window.SEED.images || {})[r.id];
-      r.image = seedImg || "";
+    /* 配图规则：数据库里的图优先（管理员在后台换的图存在那儿），
+       库里的图是空的时候就回退到种子里的演示图。
+       注意要用「空字符串也算没有」的判断 —— 云端的 image 字段默认是 ''，
+       只判断 undefined 的话，云端配方会全部退化成 emoji。 */
+    if (!r.image) {
+      r.image = (window.SEED.images || {})[r.id] || "";
     }
-    r.imageThumb = r.image ? (r.imageThumb || thumbFor(r.image)) : "";
+    // 图片地址变了就重算缩略图（后台换过图的情况）
+    r.imageThumb = r.image ? thumbFor(r.image) : "";
     var py = pinyinOf("recipes", r.id);
-    r.py = py.p;
-    r.initial = py.i;
+    if (!r.py) r.py = py.p;
+    if (!r.initial || r.initial === "#") r.initial = py.i;
     return r;
   }
 

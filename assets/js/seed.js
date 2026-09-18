@@ -212,7 +212,8 @@ window.SEED = {
 
     // 其他
     { id: "ice",        name: "冰块",         cat: "其他", emoji: "🧊", aka: "Ice", basic: true },
-    { id: "nutmeg",     name: "肉豆蔻",       cat: "其他", emoji: "🥜", aka: "Nutmeg" }
+    { id: "nutmeg",     name: "肉豆蔻",       cat: "其他", emoji: "🥜", aka: "Nutmeg" },
+    { id: "hot-water",  name: "热水",         cat: "其他", emoji: "♨️", aka: "Hot Water" }
   ],
 
   /* ---------- 示例配方 ---------- */
@@ -1284,6 +1285,283 @@ window.SEED = {
         { id: "mint", amount: "8 片" }, { id: "soda-water", amount: "补满" }, { id: "ice", amount: "满杯" }
       ],
       steps: ["薄荷与糖浆轻压出香", "加入百香果果肉、青柠汁与白朗姆", "加满碎冰搅拌", "苏打水补满，放半颗百香果装饰"]
+    },
+
+    /* ---------- 第二批经典补充（2026-09 新增） ---------- */
+    {
+      id: "brooklyn", name: "布鲁克林", en: "Brooklyn", type: "classic", emoji: "🌉", color: "#c96b4a",
+      glass: "马天尼杯", abv: "高", desc: "曼哈顿的「兄弟版」，把甜味美思换成干味美思，再加一点黑樱桃酒，喝起来更冷峻。",
+      ingredients: [
+        { id: "rye", amount: "60 ml" }, { id: "dry-vermouth", amount: "20 ml" },
+        { id: "maraschino", amount: "10 ml" }, { id: "angostura", amount: "1 dash" }
+      ],
+      steps: ["材料加冰搅拌 20 秒", "滤入冰镇马天尼杯", "樱桃或柠檬皮装饰"]
+    },
+    {
+      id: "bijou", name: "珠宝", en: "Bijou", type: "classic", emoji: "💎", color: "#d9b45a",
+      glass: "马天尼杯", abv: "高", desc: "19 世纪末的经典，金酒 + 甜味美思 + 荨麻酒，名字取自三种酒的颜色像三颗宝石。",
+      ingredients: [
+        { id: "gin", amount: "45 ml" }, { id: "sweet-vermouth", amount: "20 ml" },
+        { id: "chartreuse", amount: "15 ml" }, { id: "orange-bitters", amount: "1 dash" }
+      ],
+      steps: ["材料加冰搅拌 20 秒", "滤入冰镇马天尼杯", "柠檬皮挤香后放入杯中"]
+    },
+    {
+      id: "dirty-martini", name: "脏马天尼", en: "Dirty Martini", type: "classic", emoji: "🫒", color: "#b8b09a",
+      glass: "马天尼杯", abv: "高", desc: "在马天尼里加一勺腌橄榄的盐水，酒体会变浑浊（所以叫「脏」），咸香很上头。",
+      ingredients: [
+        { id: "gin", amount: "60 ml" }, { id: "dry-vermouth", amount: "10 ml" },
+        { id: "olive", amount: "2 颗" }, { id: "salt", amount: "少许" }
+      ],
+      steps: ["材料加冰搅拌 20 秒", "连一勺腌橄榄的盐水一起滤入冰镇马天尼杯", "放两颗橄榄装饰"]
+    },
+    {
+      id: "vodka-martini", name: "伏特加马天尼", en: "Vodka Martini", type: "classic", emoji: "🍸", color: "#dcd8cc",
+      glass: "马天尼杯", abv: "高", desc: "把金酒换成伏特加，杜松子香没了，口感更干净，007 点的那杯就是它。",
+      ingredients: [
+        { id: "vodka", amount: "60 ml" }, { id: "dry-vermouth", amount: "10 ml" },
+        { id: "lemon", amount: "1 片皮", optional: true }
+      ],
+      steps: ["材料加冰搅拌 20 秒", "滤入冰镇马天尼杯", "柠檬皮挤香后装饰"]
+    },
+    {
+      id: "death-in-the-afternoon", name: "午后之死", en: "Death in the Afternoon", type: "classic", emoji: "💀", color: "#e7d98a",
+      glass: "香槟杯", abv: "高", desc: "海明威自己发明的：苦艾酒加香槟。倒进去会变成乳白色，也叫「海明威效应」。",
+      ingredients: [
+        { id: "absinthe", amount: "15 ml" }, { id: "sparkling", amount: "90 ml" }
+      ],
+      steps: ["香槟杯中先倒入苦艾酒", "缓慢注入冰镇起泡酒", "看着它变成乳白色，轻轻搅一下"]
+    },
+    {
+      id: "boston-sour", name: "波士顿酸", en: "Boston Sour", type: "classic", emoji: "🍋", color: "#e8c98a",
+      glass: "古典杯", abv: "中", desc: "威士忌酸加蛋白，摇出绵密的奶盖感，是酸酒家族里最讨喜的一支。",
+      ingredients: [
+        { id: "bourbon", amount: "50 ml" }, { id: "lemon-juice", amount: "20 ml" },
+        { id: "simple-syrup", amount: "15 ml" }, { id: "egg-white", amount: "1 个" },
+        { id: "angostura", amount: "1 dash", optional: true }
+      ],
+      steps: ["除苦精外全部材料加冰大力摇 12 秒", "滤掉冰再干摇一次，让蛋白起泡", "滤入放冰的古典杯", "表面滴两滴苦精"]
+    },
+    {
+      id: "bahama-mama", name: "巴哈马妈妈", en: "Bahama Mama", type: "classic", emoji: "🌴", color: "#e07a3a",
+      glass: "高球杯", abv: "中", desc: "热带派对的常客，朗姆 + 椰香 + 两种果汁，甜得像在度假。",
+      ingredients: [
+        { id: "dark-rum", amount: "30 ml" }, { id: "malibu", amount: "20 ml" },
+        { id: "pineapple-juice", amount: "60 ml" }, { id: "orange-juice", amount: "30 ml" },
+        { id: "grenadine", amount: "10 ml" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["全部材料加冰摇匀", "滤入放冰的高球杯", "菠萝片与樱桃装饰"]
+    },
+    {
+      id: "caipirissima", name: "卡琵莉西玛", en: "Caipirissima", type: "classic", emoji: "🍈", color: "#a8d98a",
+      glass: "古典杯", abv: "中", desc: "卡琵利亚的朗姆版本，做法一模一样，把甘蔗酒换成白朗姆就好。",
+      ingredients: [
+        { id: "white-rum", amount: "60 ml" }, { id: "lime", amount: "1 个" },
+        { id: "sugar", amount: "2 茶匙" }, { id: "ice", amount: "碎冰满杯" }
+      ],
+      steps: ["青柠切块，与糖一起轻捣出汁", "加入白朗姆与碎冰", "搅拌至杯壁结霜"]
+    },
+    {
+      id: "algonquin", name: "阿尔冈琴", en: "Algonquin", type: "classic", emoji: "🖋️", color: "#d9a441",
+      glass: "马天尼杯", abv: "高", desc: "纽约阿尔冈琴酒店的老配方，黑麦威士忌配菠萝汁，酸得意外地协调。",
+      ingredients: [
+        { id: "rye", amount: "45 ml" }, { id: "dry-vermouth", amount: "15 ml" },
+        { id: "pineapple-juice", amount: "15 ml" }
+      ],
+      steps: ["材料加冰摇匀", "滤入冰镇马天尼杯", "不加装饰，直接喝"]
+    },
+    {
+      id: "affinity", name: "亲和", en: "Affinity", type: "classic", emoji: "🤝", color: "#b5763a",
+      glass: "马天尼杯", abv: "高", desc: "苏格兰威士忌配两种味美思，烟熏与草本互相衬托，适合慢慢喝。",
+      ingredients: [
+        { id: "scotch", amount: "40 ml" }, { id: "sweet-vermouth", amount: "20 ml" },
+        { id: "dry-vermouth", amount: "20 ml" }, { id: "orange-bitters", amount: "2 dash" }
+      ],
+      steps: ["材料加冰搅拌 20 秒", "滤入冰镇马天尼杯", "橙皮装饰"]
+    },
+    {
+      id: "casino", name: "卡西诺", en: "Casino", type: "classic", emoji: "🎲", color: "#e8d98a",
+      glass: "马天尼杯", abv: "中", desc: "金酒 + 黑樱桃酒 + 柠檬，酸甜干净，名字来自摩纳哥的赌场。",
+      ingredients: [
+        { id: "gin", amount: "45 ml" }, { id: "maraschino", amount: "10 ml" },
+        { id: "lemon-juice", amount: "10 ml" }, { id: "orange-bitters", amount: "2 dash" }
+      ],
+      steps: ["材料加冰摇匀", "滤入冰镇马天尼杯", "樱桃装饰"]
+    },
+    {
+      id: "tuxedo", name: "燕尾服", en: "Tuxedo", type: "classic", emoji: "🎩", color: "#c9c2a8",
+      glass: "马天尼杯", abv: "高", desc: "19 世纪绅士俱乐部里的马天尼变体，加一点黑樱桃酒和苦艾酒，香气更立体。",
+      ingredients: [
+        { id: "gin", amount: "45 ml" }, { id: "dry-vermouth", amount: "15 ml" },
+        { id: "maraschino", amount: "5 ml" }, { id: "absinthe", amount: "1 dash" },
+        { id: "orange-bitters", amount: "1 dash" }
+      ],
+      steps: ["材料加冰搅拌 20 秒", "滤入冰镇马天尼杯", "樱桃与柠檬皮装饰"]
+    },
+    {
+      id: "mary-pickford", name: "玛丽·皮克馥", en: "Mary Pickford", type: "classic", emoji: "🎬", color: "#f2a0a0",
+      glass: "马天尼杯", abv: "中", desc: "哈瓦那的黄金年代为默片女星玛丽·皮克馥调的，菠萝与石榴的粉红色很讨喜。",
+      ingredients: [
+        { id: "white-rum", amount: "45 ml" }, { id: "pineapple-juice", amount: "45 ml" },
+        { id: "grenadine", amount: "10 ml" }, { id: "maraschino", amount: "5 ml" }
+      ],
+      steps: ["材料加冰摇匀", "滤入冰镇马天尼杯", "樱桃装饰"]
+    },
+    {
+      id: "old-cuban", name: "老古巴", en: "Old Cuban", type: "classic", emoji: "💃", color: "#d9a441",
+      glass: "香槟杯", abv: "中", desc: "2000 年代纽约的创作，本质是「加了香槟的莫吉托」，薄荷 + 起泡酒很清爽。",
+      ingredients: [
+        { id: "aged-rum", amount: "45 ml" }, { id: "lime-juice", amount: "15 ml" },
+        { id: "simple-syrup", amount: "15 ml" }, { id: "mint", amount: "6 片" },
+        { id: "angostura", amount: "2 dash" }, { id: "sparkling", amount: "60 ml" }
+      ],
+      steps: ["薄荷与糖浆在雪克杯里轻压出香", "加入朗姆、青柠汁与苦精，加冰摇匀", "滤入香槟杯", "起泡酒补满，插薄荷尖"]
+    },
+    {
+      id: "pegu-club", name: "佩古俱乐部", en: "Pegu Club", type: "classic", emoji: "🐯", color: "#e0a94a",
+      glass: "马天尼杯", abv: "中", desc: "缅甸仰光的英国俱乐部配方，金酒 + 橙酒 + 青柠 + 双份苦精，结构非常工整。",
+      ingredients: [
+        { id: "gin", amount: "45 ml" }, { id: "cointreau", amount: "15 ml" },
+        { id: "lime-juice", amount: "15 ml" }, { id: "angostura", amount: "1 dash" },
+        { id: "orange-bitters", amount: "1 dash" }
+      ],
+      steps: ["材料加冰摇匀", "滤入冰镇马天尼杯", "青柠皮装饰"]
+    },
+    {
+      id: "pink-gin", name: "粉红金酒", en: "Pink Gin", type: "classic", emoji: "🌸", color: "#f0a8b8",
+      glass: "马天尼杯", abv: "高", desc: "英国海军的喝法：苦精洗杯，再倒冰金酒。两样材料，颜色很漂亮。",
+      ingredients: [
+        { id: "gin", amount: "60 ml" }, { id: "angostura", amount: "3 dash" },
+        { id: "ice", amount: "适量" }
+      ],
+      steps: ["冰镇马天尼杯里滴入苦精，转动杯子让酒液挂壁", "倒入冰镇金酒", "把浮在表面的苦精撇掉即可"]
+    },
+    {
+      id: "salty-dog", name: "咸狗", en: "Salty Dog", type: "classic", emoji: "🐕", color: "#f2c8a0",
+      glass: "高球杯", abv: "中", desc: "灰狗的盐边版本，盐把西柚的苦甜压得更清楚。",
+      ingredients: [
+        { id: "vodka", amount: "45 ml" }, { id: "grapefruit-juice", amount: "90 ml" },
+        { id: "salt", amount: "少许" }, { id: "ice", amount: "满杯" }
+      ],
+      steps: ["用柠檬角擦湿杯口，蘸一圈盐", "杯中加冰，倒入伏特加与西柚汁", "轻轻搅拌两下"]
+    },
+    {
+      id: "frozen-daiquiri", name: "冰冻代基里", en: "Frozen Daiquiri", type: "classic", emoji: "🧊", color: "#cfe8e0",
+      glass: "大杯", abv: "中", desc: "把代基里打成冰沙，夏天最没有抵抗力的一杯。",
+      ingredients: [
+        { id: "white-rum", amount: "60 ml" }, { id: "lime-juice", amount: "25 ml" },
+        { id: "simple-syrup", amount: "15 ml" }, { id: "ice", amount: "一杯" }
+      ],
+      steps: ["所有材料加碎冰打成沙", "倒入冰镇大杯", "青柠片装饰，配吸管"]
+    },
+    {
+      id: "rum-runner", name: "朗姆走私者", en: "Rum Runner", type: "classic", emoji: "🏴‍☠️", color: "#e05a4a",
+      glass: "高球杯", abv: "中", desc: "佛罗里达的度假名酒，香蕉利口酒 + 黑莓利口酒，颜色和味道都很热闹。",
+      ingredients: [
+        { id: "dark-rum", amount: "30 ml" }, { id: "banana-liqueur", amount: "15 ml" },
+        { id: "creme-de-cassis", amount: "10 ml" }, { id: "pineapple-juice", amount: "45 ml" },
+        { id: "grenadine", amount: "10 ml" }, { id: "lime-juice", amount: "10 ml" }
+      ],
+      steps: ["全部材料加冰摇匀", "滤入放冰的高球杯", "菠萝片与樱桃装饰"]
+    },
+    {
+      id: "yellow-bird", name: "黄鸟", en: "Yellow Bird", type: "classic", emoji: "🐤", color: "#f2d05a",
+      glass: "马天尼杯", abv: "中", desc: "加勒比经典，加利安奴的香草甜配上朗姆和青柠，颜色像热带的小鸟。",
+      ingredients: [
+        { id: "white-rum", amount: "30 ml" }, { id: "galliano", amount: "15 ml" },
+        { id: "triple-sec", amount: "15 ml" }, { id: "lime-juice", amount: "15 ml" }
+      ],
+      steps: ["材料加冰摇匀", "滤入冰镇马天尼杯", "樱桃装饰"]
+    },
+    {
+      id: "hot-toddy", name: "热托蒂", en: "Hot Toddy", type: "classic", emoji: "☕", color: "#c98a4a",
+      glass: "马克杯", abv: "中", desc: "感冒时的老偏方，威士忌 + 蜂蜜 + 柠檬 + 热水，捧在手里就很舒服。",
+      ingredients: [
+        { id: "scotch", amount: "45 ml" }, { id: "honey", amount: "15 ml" },
+        { id: "lemon-juice", amount: "15 ml" }, { id: "hot-water", amount: "90 ml" },
+        { id: "clove", amount: "2 颗", optional: true }, { id: "cinnamon-stick", amount: "1 根", optional: true }
+      ],
+      steps: ["杯中放蜂蜜与柠檬汁", "倒入威士忌搅匀", "注入热水，放肉桂棒与丁香", "趁热喝"]
+    },
+    {
+      id: "mulled-wine", name: "热红酒", en: "Mulled Wine", type: "classic", emoji: "🍷", color: "#a8503a",
+      glass: "马克杯", abv: "低", desc: "圣诞集市的香气：红酒加橙子和香料微微加热，注意千万别煮沸。",
+      ingredients: [
+        { id: "red-wine", amount: "200 ml" }, { id: "orange", amount: "1 个" },
+        { id: "honey", amount: "30 ml" }, { id: "cinnamon-stick", amount: "1 根" },
+        { id: "clove", amount: "5 颗" }, { id: "star-anise", amount: "2 颗" }
+      ],
+      steps: ["橙子切片，与红酒、香料一起小火加热至微微冒热气", "关火前加蜂蜜调味，不要煮沸", "焖 10 分钟后滤入杯中"]
+    },
+    {
+      id: "red-snapper", name: "红鲷鱼", en: "Red Snapper", type: "classic", emoji: "🐟", color: "#d94a3a",
+      glass: "高球杯", abv: "低", desc: "血腥玛丽的琴酒版本——其实比原版更早，用金酒配番茄汁和香料。",
+      ingredients: [
+        { id: "gin", amount: "45 ml" }, { id: "tomato-juice", amount: "120 ml" },
+        { id: "lemon-juice", amount: "15 ml" }, { id: "worcestershire", amount: "3 滴" },
+        { id: "tabasco", amount: "2 滴" }, { id: "celery-salt", amount: "少许" },
+        { id: "pepper", amount: "少许" }
+      ],
+      steps: ["全部材料倒入调酒杯，加冰来回滚动混合", "滤入放冰的高球杯", "芹菜杆与柠檬角装饰"]
+    },
+    {
+      id: "tequila-sour", name: "龙舌兰酸", en: "Tequila Sour", type: "classic", emoji: "🌵", color: "#d9e08a",
+      glass: "古典杯", abv: "中", desc: "龙舌兰的植物感配上蛋白，酸酒里最有「人味」的一杯。",
+      ingredients: [
+        { id: "tequila", amount: "50 ml" }, { id: "lemon-juice", amount: "20 ml" },
+        { id: "simple-syrup", amount: "15 ml" }, { id: "egg-white", amount: "1 个" },
+        { id: "angostura", amount: "1 dash", optional: true }
+      ],
+      steps: ["除苦精外加冰大力摇 12 秒", "滤掉冰再干摇起泡", "滤入放冰的古典杯，表面滴苦精"]
+    },
+    {
+      id: "b-53", name: "B-53 轰炸机", en: "B-53", type: "classic", emoji: "🎯", color: "#4a3a2a",
+      glass: "子弹杯", abv: "高", desc: "三层分层的经典小杯，一层咖啡、一层奶酒、一层苦艾，一口下去。",
+      ingredients: [
+        { id: "kahlua", amount: "20 ml" }, { id: "baileys", amount: "20 ml" },
+        { id: "absinthe", amount: "20 ml" }
+      ],
+      steps: ["子弹杯中先倒咖啡利口酒", "沿匙背缓慢倒入奶酒，形成第二层", "再沿匙背倒苦艾酒，分层明显即可"]
+    },
+    {
+      id: "french-martini", name: "法兰西马天尼", en: "French Martini", type: "classic", emoji: "🇫🇷", color: "#d95a8a",
+      glass: "马天尼杯", abv: "中", desc: "90 年代纽约的爆款，伏特加 + 黑莓利口酒 + 菠萝汁，摇出来带一层细泡沫。",
+      ingredients: [
+        { id: "vodka", amount: "45 ml" }, { id: "chambord", amount: "15 ml" },
+        { id: "pineapple-juice", amount: "45 ml" }
+      ],
+      steps: ["材料加冰大力摇匀", "滤入冰镇马天尼杯", "菠萝叶或柠檬皮装饰"]
+    },
+    {
+      id: "pornstar-martini", name: "明星马天尼", en: "Pornstar Martini", type: "classic", emoji: "⭐", color: "#f2c05a",
+      glass: "马天尼杯", abv: "中", desc: "百香果风味的现代经典，旁边配一小杯起泡酒，一口酒一口香槟交替喝。",
+      ingredients: [
+        { id: "vodka", amount: "40 ml" }, { id: "passionfruit-syrup", amount: "20 ml" },
+        { id: "passionfruit", amount: "1 个" }, { id: "lime-juice", amount: "10 ml" },
+        { id: "sparkling", amount: "60 ml" }
+      ],
+      steps: ["百香果对半切开，取一半果肉入杯", "加伏特加、百香果糖浆与青柠汁，加冰摇匀", "滤入冰镇马天尼杯，放半颗百香果", "另配一小杯冰起泡酒一起上"]
+    },
+    {
+      id: "miami-vice", name: "迈阿密风云", en: "Miami Vice", type: "classic", emoji: "🍹", color: "#f2a0a0",
+      glass: "高球杯", abv: "中", desc: "80 年代的产物：一半椰香朗姆冰沙，一半草莓冰沙，同时倒进杯子就有了分层。",
+      ingredients: [
+        { id: "white-rum", amount: "30 ml" }, { id: "malibu", amount: "15 ml" },
+        { id: "pineapple-juice", amount: "45 ml" }, { id: "strawberry", amount: "3 颗" },
+        { id: "lime-juice", amount: "10 ml" }, { id: "ice", amount: "两杯" }
+      ],
+      steps: ["朗姆、椰香酒、菠萝汁加冰打成椰香冰沙", "另一份加草莓与青柠汁打成草莓冰沙", "两种冰沙同时从两侧倒入杯中形成分层", "菠萝片与草莓装饰"]
+    },
+    {
+      id: "sangria", name: "桑格利亚", en: "Sangria", type: "classic", emoji: "🍇", color: "#a83a4a",
+      glass: "大杯", abv: "低", desc: "西班牙的水果红酒，提前泡一大壶，聚会时最省事也最受欢迎。",
+      ingredients: [
+        { id: "red-wine", amount: "300 ml" }, { id: "orange", amount: "1 个" },
+        { id: "apple", amount: "1 个" }, { id: "lemon", amount: "半个" },
+        { id: "brandy", amount: "30 ml" }, { id: "sugar", amount: "2 茶匙" },
+        { id: "sparkling-water", amount: "适量", optional: true }
+      ],
+      steps: ["橙子、苹果、柠檬切块放入壶中", "倒入红酒、白兰地与糖拌匀", "冷藏浸泡 2 小时以上", "喝时倒进放冰的大杯，可加一点气泡水"]
     }
   ],
 
@@ -1355,6 +1633,57 @@ window.SEED = {
     "sex-on-the-beach": "https://www.thecocktaildb.com/images/media/drink/fi67641668420787.jpg",
     "black-russian": "https://www.thecocktaildb.com/images/media/drink/8oxlqf1606772765.jpg",
     "screwdriver": "https://www.thecocktaildb.com/images/media/drink/8xnyke1504352207.jpg",
+
+    /* ---------- 补齐：原来没配图的经典款 ---------- */
+    "alaska": "https://www.thecocktaildb.com/images/media/drink/wsyryt1483387720.jpg",
+    "gin-rickey": "https://www.thecocktaildb.com/images/media/drink/s00d6f1504883945.jpg",
+    "jack-rose": "https://www.thecocktaildb.com/images/media/drink/uuqqrv1439907068.jpg",
+    "kir-royale": "https://www.thecocktaildb.com/images/media/drink/yt9i7n1504370388.jpg",
+    "new-york-sour": "https://www.thecocktaildb.com/images/media/drink/61wgch1504882795.jpg",
+    "pink-lady": "https://www.thecocktaildb.com/images/media/drink/5ia6j21504887829.jpg",
+    "ramos-gin-fizz": "https://www.thecocktaildb.com/images/media/drink/967t911643844053.jpg",
+    "rob-roy": "https://www.thecocktaildb.com/images/media/drink/typuyq1439456976.jpg",
+    "rusty-nail": "https://www.thecocktaildb.com/images/media/drink/yqsvtw1478252982.jpg",
+    "stinger": "https://www.thecocktaildb.com/images/media/drink/2ahv791504352433.jpg",
+    "vesper": "https://www.thecocktaildb.com/images/media/drink/mtdxpa1504374514.jpg",
+    "blue-lagoon": "https://www.thecocktaildb.com/images/media/drink/5wm4zo1582579154.jpg",
+    "monkey-gland": "https://www.thecocktaildb.com/images/media/drink/94psp81504350690.jpg",
+    "adonis": "https://www.thecocktaildb.com/images/media/drink/xrvruq1472812030.jpg",
+    "bobby-burns": "https://www.thecocktaildb.com/images/media/drink/km6se51484411608.jpg",
+    "tipperary": "https://www.thecocktaildb.com/images/media/drink/b522ek1521761610.jpg",
+    "champagne-cocktail": "https://www.thecocktaildb.com/images/media/drink/t5pv461606773026.jpg",
+    "eggnog": "https://www.thecocktaildb.com/images/media/drink/xwrpsv1478820541.jpg",
+
+    /* ---------- 第二批经典补充 ---------- */
+    "brooklyn": "https://www.thecocktaildb.com/images/media/drink/ojsezf1582477277.jpg",
+    "bijou": "https://www.thecocktaildb.com/images/media/drink/rysb3r1513706985.jpg",
+    "dirty-martini": "https://www.thecocktaildb.com/images/media/drink/vcyvpq1485083300.jpg",
+    "vodka-martini": "https://www.thecocktaildb.com/images/media/drink/qyxrqw1439906528.jpg",
+    "death-in-the-afternoon": "https://www.thecocktaildb.com/images/media/drink/y7s3rh1598719574.jpg",
+    "boston-sour": "https://www.thecocktaildb.com/images/media/drink/kxlgbi1504366100.jpg",
+    "bahama-mama": "https://www.thecocktaildb.com/images/media/drink/tyb4a41515793339.jpg",
+    "caipirissima": "https://www.thecocktaildb.com/images/media/drink/yd47111503565515.jpg",
+    "algonquin": "https://www.thecocktaildb.com/images/media/drink/uwryxx1483387873.jpg",
+    "affinity": "https://www.thecocktaildb.com/images/media/drink/wzdtnn1582477684.jpg",
+    "casino": "https://www.thecocktaildb.com/images/media/drink/1mvjxg1504348579.jpg",
+    "tuxedo": "https://www.thecocktaildb.com/images/media/drink/4u0nbl1504352551.jpg",
+    "mary-pickford": "https://www.thecocktaildb.com/images/media/drink/f9erqb1504350557.jpg",
+    "old-cuban": "https://www.thecocktaildb.com/images/media/drink/eo8gfx1699022995.jpg",
+    "pegu-club": "https://www.thecocktaildb.com/images/media/drink/jfkemm1513703902.jpg",
+    "pink-gin": "https://www.thecocktaildb.com/images/media/drink/qyr51e1504888618.jpg",
+    "salty-dog": "https://www.thecocktaildb.com/images/media/drink/4vfge01504890216.jpg",
+    "frozen-daiquiri": "https://www.thecocktaildb.com/images/media/drink/7oyrj91504884412.jpg",
+    "rum-runner": "https://www.thecocktaildb.com/images/media/drink/vqws6t1504888857.jpg",
+    "yellow-bird": "https://www.thecocktaildb.com/images/media/drink/2t9r6w1504374811.jpg",
+    "hot-toddy": "https://www.thecocktaildb.com/images/media/drink/ggx0lv1613942306.jpg",
+    "mulled-wine": "https://www.thecocktaildb.com/images/media/drink/iuwi6h1504735724.jpg",
+    "red-snapper": "https://www.thecocktaildb.com/images/media/drink/7p607y1504735343.jpg",
+    "tequila-sour": "https://www.thecocktaildb.com/images/media/drink/ek0mlq1504820601.jpg",
+    "b-53": "https://www.thecocktaildb.com/images/media/drink/rwqxrv1461866023.jpg",
+    "french-martini": "https://www.thecocktaildb.com/images/media/drink/clth721504373134.jpg",
+    "pornstar-martini": "https://www.thecocktaildb.com/images/media/drink/xjhjdf1630406071.jpg",
+    "miami-vice": "https://www.thecocktaildb.com/images/media/drink/qvuyqw1441208955.jpg",
+    "sangria": "https://www.thecocktaildb.com/images/media/drink/xrvxpp1441249280.jpg",
   },
 
   /* ---------- 口味标签体系 ----------
@@ -1601,7 +1930,38 @@ window.SEED = {
     "custom-plum-soda": ["甜", "酸", "果香", "气泡", "清爽", "长饮", "微醺", "夏日"],
     "custom-hawthorn-gin": ["酸", "甜", "果香", "清爽", "短饮", "中等", "餐前"],
     "custom-goji-whisky": ["甜", "果香", "草本", "浓郁", "短饮", "中等", "冬日", "餐后"],
-    "custom-passionfruit-mojito": ["酸", "甜", "果香", "草本", "气泡", "长饮", "微醺", "夏日", "派对"]
+    "custom-passionfruit-mojito": ["酸", "甜", "果香", "草本", "气泡", "长饮", "微醺", "夏日", "派对"],
+
+    /* 第二批经典补充 */
+    "brooklyn": ["苦", "草本", "浓郁", "短饮", "烈", "餐后"],
+    "bijou": ["甜", "草本", "浓郁", "短饮", "烈", "餐后"],
+    "dirty-martini": ["咸", "草本", "清爽", "短饮", "烈", "餐前"],
+    "vodka-martini": ["清爽", "短饮", "烈", "餐前"],
+    "death-in-the-afternoon": ["草本", "气泡", "短饮", "烈", "餐后"],
+    "boston-sour": ["酸", "绵密", "奶香", "短饮", "中等", "餐后"],
+    "bahama-mama": ["甜", "果香", "长饮", "中等", "夏日", "派对"],
+    "caipirissima": ["酸", "甜", "清爽", "短饮", "中等", "夏日"],
+    "algonquin": ["酸", "果香", "清爽", "短饮", "烈", "餐前"],
+    "affinity": ["苦", "草本", "浓郁", "短饮", "烈", "餐后"],
+    "casino": ["酸", "甜", "果香", "短饮", "中等", "餐前"],
+    "tuxedo": ["草本", "清爽", "短饮", "烈", "餐前"],
+    "mary-pickford": ["甜", "果香", "清爽", "短饮", "中等", "餐前"],
+    "old-cuban": ["酸", "果香", "气泡", "草本", "长饮", "中等", "夏日"],
+    "pegu-club": ["酸", "苦", "果香", "短饮", "中等", "餐前"],
+    "pink-gin": ["苦", "草本", "短饮", "烈", "餐前"],
+    "salty-dog": ["酸", "咸", "清爽", "长饮", "中等", "夏日"],
+    "frozen-daiquiri": ["酸", "甜", "冰沙", "清爽", "短饮", "中等", "夏日"],
+    "rum-runner": ["甜", "果香", "长饮", "中等", "夏日", "派对"],
+    "yellow-bird": ["甜", "酸", "果香", "短饮", "中等", "夏日"],
+    "hot-toddy": ["甜", "酸", "草本", "长饮", "中等", "冬日"],
+    "mulled-wine": ["甜", "果香", "长饮", "微醺", "冬日", "派对"],
+    "red-snapper": ["咸", "酸", "清爽", "长饮", "微醺", "餐前"],
+    "tequila-sour": ["酸", "绵密", "清爽", "短饮", "中等", "餐前"],
+    "b-53": ["甜", "奶香", "短饮", "烈", "餐后", "派对"],
+    "french-martini": ["甜", "果香", "绵密", "短饮", "中等", "派对"],
+    "pornstar-martini": ["甜", "酸", "果香", "气泡", "短饮", "中等", "夏日", "派对"],
+    "miami-vice": ["甜", "果香", "冰沙", "长饮", "中等", "夏日", "派对"],
+    "sangria": ["甜", "果香", "清爽", "长饮", "微醺", "夏日", "派对"]
   },
 
 
@@ -1917,6 +2277,37 @@ window.SEED = {
       "custom-hawthorn-gin": "shanzhajinjiusuan|S",
       "custom-goji-whisky": "gouqiguiyuanweishiji|G",
       "custom-passionfruit-mojito": "baixiangguomojituo|B",
+
+      /* 第二批经典补充 */
+      "brooklyn": "bulukelin|B",
+      "bijou": "zhubao|Z",
+      "dirty-martini": "zangmatianni|Z",
+      "vodka-martini": "futejiamatianni|F",
+      "death-in-the-afternoon": "wuhouzhisi|W",
+      "boston-sour": "boshidunsuan|B",
+      "bahama-mama": "bahamama|B",
+      "caipirissima": "kapilixima|K",
+      "algonquin": "aergangqin|A",
+      "affinity": "qinhe|Q",
+      "casino": "kaxinuo|K",
+      "tuxedo": "yanweifu|Y",
+      "mary-pickford": "malipikefu|M",
+      "old-cuban": "laoguba|L",
+      "pegu-club": "peigujulebu|P",
+      "pink-gin": "fenhongjinjiu|F",
+      "salty-dog": "xiangou|X",
+      "frozen-daiquiri": "bingdongdaijili|B",
+      "rum-runner": "langmuzousizhe|L",
+      "yellow-bird": "huangniao|H",
+      "hot-toddy": "retuodi|R",
+      "mulled-wine": "rehongjiu|R",
+      "red-snapper": "hongdiaoyu|H",
+      "tequila-sour": "longsheliansuan|L",
+      "b-53": "b53hongzhaji|B",
+      "french-martini": "falaximatianni|F",
+      "pornstar-martini": "mingxingmatianni|M",
+      "miami-vice": "maiamifengyun|M",
+      "sangria": "sangeliya|S",
     }
   },
 
