@@ -24,3 +24,7 @@ _msg*.txt
 # 上传到静态托管的网页文件（由 index.html + assets 打包而来）
 上传到腾讯云-网页文件/
 cocktail-static.zip
+
+# PPT 制作的中间产物
+.deck-build/
+.codex-finalizer/
