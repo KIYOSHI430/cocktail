@@ -28,3 +28,6 @@ cocktail-static.zip
 # PPT 制作的中间产物
 .deck-build/
 .codex-finalizer/
+
+# 立项说明 PPT 的构建目录
+.deck-build-pre/
