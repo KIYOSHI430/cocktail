@@ -32,3 +32,5 @@ cocktail-static.zip
 
 # 立项说明 PPT 的构建目录
 .deck-build-pre/
+
+# 图表校验生成的临时工作簿.chart-data-*/
