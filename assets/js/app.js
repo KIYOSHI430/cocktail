@@ -27,6 +27,7 @@
   var authMode = "login";
   var smsTimer = null;
   var commentState = { recipeId: null, sort: "hot", page: 1, replyTo: null };
+  var aiState = { open: false, busy: false, messages: [] };
 
   /* ---------------- 工具 ---------------- */
 
@@ -241,6 +242,7 @@
     var img = r.imageThumb
       ? '<img class="art-img" src="' + esc(r.imageThumb) + '" alt="' + esc(r.name) + '" loading="lazy" onload="this.classList.add(\'loaded\')" onerror="this.classList.add(\'failed\')">'
       : "";
+    var vcount = Store.variantCount(r.id);
     return '<article class="card" data-id="' + r.id + '">' +
       '<div class="card-art" style="' + grad(r.color) + '" data-action="open-recipe" data-id="' + r.id + '">' +
         img +
@@ -253,6 +255,7 @@
         '<p class="desc">' + highlight(r.desc || "", hl) + "</p>" +
         (tags ? '<div class="card-tags">' + tags + "</div>" : "") +
         '<div class="meta">' + (badge || ('<span class="badge mute">' + r.ingredients.length + " 种材料</span>")) +
+          (vcount ? '<span class="badge varcount">' + vcount + " 种做法</span>" : "") +
           (r.glass ? '<span class="mute-text">' + esc(r.glass) + "</span>" : "") +
           '<span class="mute-text">' + esc(r.author || "官方") + "</span>" +
         "</div>" + missingLine +
@@ -888,6 +891,7 @@
           "<h2>教学视频</h2><p>" + videoHTML + "</p>" +
         "</div>" +
       "</section>" +
+      variantsHTML(r) +
       '<section class="panel comments" id="comments">' +
         '<div id="commentComposer"></div>' +
         '<div id="commentListWrap"></div>' +
@@ -919,6 +923,158 @@
   }
 
   /* ----- 评论区 ----- */
+
+  /* ---------------- 同一杯酒的其他做法 ---------------- */
+
+  var variantDraft = null;
+
+  function variantsHTML(r) {
+    var list = Store.getVariants(r.id);
+    var me = Store.currentUser();
+    return '<section class="panel variants">' +
+      '<div class="panel-head">' +
+        '<div><span class="kicker">其他做法 · VARIATIONS</span>' +
+        '<h2>同一杯酒的其它做法 <span class="count">' + list.length + "</span></h2></div>" +
+        '<div class="chips">' +
+          (me
+            ? '<button class="chip" data-action="variant-new" data-id="' + r.id + '">分享我的做法</button>'
+            : '<button class="chip" data-action="open-login">登录后分享做法</button>') +
+        "</div>" +
+      "</div>" +
+      '<p class="mute-text variants-intro">上面是这杯酒的经典配方。每个人家里的酒不同，做法也会有出入，下面是其他人分享的版本，挑一个更接近你手头材料的试试。</p>' +
+      (list.length
+        ? '<div class="variant-list">' + list.map(function (v) { return variantCardHTML(v, r); }).join("") + "</div>"
+        : '<div class="empty sm">还没有人分享自己的做法。你可以把改过的比例记在这里，给别人一个参考。</div>') +
+      "</section>";
+  }
+
+  function variantCardHTML(v, r) {
+    var me = Store.currentUser();
+    var ings = (v.items || []).map(function (x) {
+      var ing = Store.getIngredient(x.id);
+      return '<span class="v-ing">' + esc((ing && ing.emoji) || "🍹") + " " +
+        esc(Store.ingredientName(x.id)) +
+        (x.amount ? ' <em>' + esc(x.amount) + "</em>" : "") +
+        (x.optional ? ' <i>可选</i>' : "") +
+        "</span>";
+    }).join("");
+    var steps = (v.steps || []).map(function (s, i) {
+      return "<li><b>" + (i + 1) + "</b><span>" + esc(s) + "</span></li>";
+    }).join("");
+    var canDelete = me && (me.role === "admin" || v.authorId === me.id);
+    return '<article class="variant-card">' +
+      '<div class="variant-head">' +
+        "<h3>" + esc(v.name) + "</h3>" +
+        '<span class="mute-text">' + esc(v.author || "匿名") + " · " + timeAgo(v.createdAt) + "</span>" +
+      "</div>" +
+      (v.note ? '<p class="variant-note">' + esc(v.note) + "</p>" : "") +
+      '<div class="v-ings">' + (ings || '<span class="mute-text">没有记录材料</span>') + "</div>" +
+      (steps ? '<ol class="steps v-steps">' + steps + "</ol>" : "") +
+      '<div class="variant-actions">' +
+        '<button class="c-op' + (v.liked ? " on" : "") + '" data-action="variant-like" data-id="' + r.id + '" data-vid="' + v.id + '">' +
+          "赞 " + (v.likeCount || 0) + "</button>" +
+        (canDelete ? '<button class="c-op danger" data-action="variant-delete" data-id="' + r.id + '" data-vid="' + v.id + '">删除</button>' : "") +
+      "</div>" +
+    "</article>";
+  }
+
+  function openVariantModal(recipeId) {
+    var me = Store.currentUser();
+    if (!me) { toast("登录后才能分享自己的做法"); authModal("login"); return; }
+    var r = Store.getRecipe(recipeId);
+    if (!r) { toast("配方不存在"); return; }
+    variantDraft = {
+      recipeId: recipeId,
+      ingredients: (r.ingredients || []).map(function (x) {
+        return { id: x.id, amount: x.amount || "", optional: !!x.optional };
+      }),
+      search: ""
+    };
+    openModal(
+      "<h2>分享「" + esc(r.name) + "」的另一种做法</h2>" +
+      '<p class="mute-text">默认带上了经典配方的材料，你可以改用量、加几样、或者删掉不需要的。步骤也可以直接改。</p>' +
+      '<form id="variantForm" class="form" data-id="' + r.id + '" autocomplete="off">' +
+        '<div class="row">' +
+          '<label class="field"><span>做法名称 *</span><input class="input" name="name" maxlength="30" placeholder="例如：更酸一点的版本" required></label>' +
+        "</div>" +
+        '<label class="field"><span>一句话说明<em class="opt">选填</em></span><input class="input" name="note" maxlength="120" placeholder="比如：糖减半，青柠加倍，更适合夏天"></label>' +
+        '<h3 class="form-title">材料 <span class="mute-text">（点一下加入，可改用量）</span></h3>' +
+        '<input id="variantIngSearch" class="input search" type="search" placeholder="搜索要加的材料：名称 / 英文名">' +
+        '<div id="variantIngPicker" class="ing-picker wrap"></div>' +
+        '<ul id="variantSelectedList" class="selected-list"></ul>' +
+        '<h3 class="form-title">步骤 <span class="mute-text">（一行一步）</span></h3>' +
+        '<textarea class="input" name="steps" rows="5" required>' + esc((r.steps || []).join("\n")) + "</textarea>" +
+        '<div class="form-foot"><button class="btn" type="submit">发布这个做法</button>' +
+        '<button type="button" class="btn ghost" data-action="close-modal">取消</button></div>' +
+      "</form>"
+    );
+    renderVariantPicker();
+    renderVariantSelected();
+  }
+
+  function renderVariantPicker() {
+    var wrap = document.getElementById("variantIngPicker");
+    if (!wrap || !variantDraft) return;
+    var selected = {};
+    variantDraft.ingredients.forEach(function (x) { selected[x.id] = true; });
+    var list = Store.searchIngredients(variantDraft.search, "全部");
+    var shown = variantDraft.search ? list : list.slice(0, 36);
+    wrap.innerHTML = shown.length
+      ? shown.map(function (i) {
+          return '<button type="button" class="ing-chip ' + (selected[i.id] ? "on" : "") +
+            '" data-action="variant-toggle-ing" data-id="' + i.id + '" title="' + esc(i.aka || i.name) + '">' +
+            '<span class="e">' + esc(i.emoji || "🍹") + "</span>" + esc(i.name) + "</button>";
+        }).join("")
+      : '<div class="empty sm">没有匹配的材料</div>';
+  }
+
+  function renderVariantSelected() {
+    var ul = document.getElementById("variantSelectedList");
+    if (!ul || !variantDraft) return;
+    if (!variantDraft.ingredients.length) {
+      ul.innerHTML = '<li class="empty sm">还没有选择材料</li>';
+      return;
+    }
+    ul.innerHTML = variantDraft.ingredients.map(function (x, idx) {
+      var ing = Store.getIngredient(x.id);
+      return "<li>" +
+        '<span class="e">' + esc((ing && ing.emoji) || "🍹") + "</span>" +
+        '<span class="name">' + esc(Store.ingredientName(x.id)) + "</span>" +
+        '<input class="input sm" data-vamount="' + idx + '" value="' + esc(x.amount || "") + '" placeholder="用量，如 45 ml">' +
+        '<label class="check"><input type="checkbox" data-voptional="' + idx + '"' + (x.optional ? " checked" : "") + "> 可选/装饰</label>" +
+        '<button type="button" class="btn ghost sm" data-action="variant-remove-ing" data-idx="' + idx + '">移除</button>' +
+      "</li>";
+    }).join("");
+  }
+
+  function syncVariantInputs() {
+    var ul = document.getElementById("variantSelectedList");
+    if (!ul || !variantDraft) return;
+    ul.querySelectorAll("[data-vamount]").forEach(function (input) {
+      var i = Number(input.getAttribute("data-vamount"));
+      if (variantDraft.ingredients[i]) variantDraft.ingredients[i].amount = input.value;
+    });
+    ul.querySelectorAll("[data-voptional]").forEach(function (cb) {
+      var i = Number(cb.getAttribute("data-voptional"));
+      if (variantDraft.ingredients[i]) variantDraft.ingredients[i].optional = cb.checked;
+    });
+  }
+
+  function submitVariant(form) {
+    if (!variantDraft) return;
+    syncVariantInputs();
+    var fd = new FormData(form);
+    var steps = String(fd.get("steps") || "").split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+    var res = Store.addRecipeVariant(form.getAttribute("data-id"), {
+      name: fd.get("name"), note: fd.get("note"),
+      items: variantDraft.ingredients.slice(), steps: steps
+    });
+    if (!res.ok) { toast(res.msg); return; }
+    variantDraft = null;
+    closeModal();
+    toast("做法已发布，谢谢分享");
+    render();
+  }
 
   function renderCommentComposer() {
     var host = document.getElementById("commentComposer");
@@ -2006,6 +2162,146 @@
     showRandomModal(r, "");
   }
 
+  /* ---------------- AI 调酒助手 ---------------- */
+
+  function initAIDock() {
+    if (document.getElementById("aiPanel")) return;
+    var fab = document.createElement("button");
+    fab.type = "button";
+    fab.id = "aiFab";
+    fab.className = "ai-fab";
+    fab.setAttribute("data-action", "ai-open");
+    fab.innerHTML = '<span class="ai-fab-dot"></span><b>AI 调酒师</b>';
+    document.body.appendChild(fab);
+
+    var panel = document.createElement("section");
+    panel.id = "aiPanel";
+    panel.className = "ai-panel";
+    panel.innerHTML =
+      '<header class="ai-head">' +
+        "<div><b>AI 调酒师</b><span>说口味、心情，或者手头有什么材料</span></div>" +
+        '<button type="button" class="ai-close" data-action="ai-close" aria-label="关闭">×</button>' +
+      "</header>" +
+      '<div class="ai-log" id="aiLog"></div>' +
+      '<div class="ai-quick">' +
+        '<button type="button" class="ai-chip" data-action="ai-quick" data-value="我只有金酒和柠檬，想喝酸的">金酒 + 柠檬</button>' +
+        '<button type="button" class="ai-chip" data-action="ai-quick" data-value="今天有点累，想喝一杯低度放松的">累了想放松</button>' +
+        '<button type="button" class="ai-chip" data-action="ai-quick" data-value="朋友来家里聚会，想要有气泡的长饮">聚会喝什么</button>' +
+      "</div>" +
+      '<form class="ai-form" id="aiForm" autocomplete="off">' +
+        '<input class="input" name="message" maxlength="200" placeholder="比如：我有伏特加和橙汁，想喝甜一点">' +
+        '<button class="btn" type="submit">发送</button>' +
+      "</form>";
+    document.body.appendChild(panel);
+    renderAILog();
+  }
+
+  function aiToggle(open) {
+    aiState.open = typeof open === "boolean" ? open : !aiState.open;
+    var panel = document.getElementById("aiPanel");
+    var fab = document.getElementById("aiFab");
+    if (panel) panel.classList.toggle("open", aiState.open);
+    if (fab) fab.classList.toggle("is-hidden", aiState.open);
+    if (aiState.open) {
+      setTimeout(function () {
+        var input = document.querySelector("#aiForm input[name=message]");
+        if (input) input.focus();
+        var log = document.getElementById("aiLog");
+        if (log) log.scrollTop = log.scrollHeight;
+      }, 220);
+    }
+  }
+
+  function aiRecipeCardHTML(r) {
+    return '<a class="ai-recipe" href="#/recipe/' + esc(r.id) + '" data-action="ai-close">' +
+      '<span class="ai-recipe-emoji">' + esc(r.emoji || "🍹") + "</span>" +
+      '<span class="ai-recipe-main"><b>' + esc(r.name) + "</b>" +
+        '<em>' + esc((r.tags || []).join(" · ")) + "</em></span>" +
+      '<span class="ai-recipe-go">→</span></a>';
+  }
+
+  function renderAILog() {
+    var log = document.getElementById("aiLog");
+    if (!log) return;
+    if (!aiState.messages.length) {
+      log.innerHTML = '<div class="ai-welcome">' +
+        "<p>你好，我是调酒助手。告诉我你想喝什么，或者你手头有什么材料。</p>" +
+        '<p class="mute-text">比如：「我有金酒、青柠和苏打水，想喝清爽一点的」</p>' +
+        "</div>";
+      return;
+    }
+    log.innerHTML = aiState.messages.map(function (m) {
+      if (m.role === "user") {
+        return '<div class="ai-msg user"><div class="ai-bubble">' + esc(m.text) + "</div></div>";
+      }
+      var recipes = (m.recipes || []).map(aiRecipeCardHTML).join("");
+      var actions = (m.actions || []).map(function (a) {
+        if (a.type === "selectIngredients") {
+          return '<button type="button" class="ai-action" data-action="ai-goto" data-value="match">✓ 已在「我有啥」勾选 ' +
+            a.ids.length + " 种材料，去看看</button>";
+        }
+        if (a.type === "setTags") {
+          return '<button type="button" class="ai-action" data-action="ai-goto" data-value="tags">✓ 已在「想喝啥」选中 ' +
+            esc(a.tags.join("、")) + "，去看看</button>";
+        }
+        return "";
+      }).join("");
+      return '<div class="ai-msg bot">' +
+        '<div class="ai-bubble">' + esc(m.text) + "</div>" +
+        (recipes ? '<div class="ai-recipes">' + recipes + "</div>" : "") +
+        (actions ? '<div class="ai-actions">' + actions + "</div>" : "") +
+        "</div>";
+    }).join("") +
+      (aiState.busy ? '<div class="ai-msg bot"><div class="ai-bubble ai-thinking">正在想…</div></div>' : "");
+    log.scrollTop = log.scrollHeight;
+  }
+
+  /** AI 返回的动作，直接作用到网站状态上（勾材料 / 选标签） */
+  function applyAIActions(actions) {
+    (actions || []).forEach(function (a) {
+      if (a.type === "selectIngredients" && Array.isArray(a.ids)) {
+        var current = Store.getMyIngredients();
+        var next = current.slice();
+        a.ids.forEach(function (id) {
+          if (next.indexOf(id) < 0 && Store.getIngredient(id)) next.push(id);
+        });
+        Store.setMyIngredients(next);
+      }
+      if (a.type === "setTags" && Array.isArray(a.tags)) {
+        tagFilter.tags = a.tags.slice(0, 6);
+        tagFilter.mode = a.mode === "all" ? "all" : "any";
+      }
+    });
+  }
+
+  function sendAIMessage(text) {
+    text = String(text || "").trim();
+    if (!text || aiState.busy) return;
+    aiState.messages.push({ role: "user", text: text });
+    aiState.busy = true;
+    renderAILog();
+    var input = document.querySelector("#aiForm input[name=message]");
+    if (input) input.value = "";
+
+    Store.askAI(text, function (res) {
+      aiState.busy = false;
+      if (!res || !res.ok) {
+        aiState.messages.push({ role: "bot", text: (res && res.msg) || "AI 暂时没回应，稍后再试一次。" });
+        renderAILog();
+        return;
+      }
+      var data = res.data || {};
+      aiState.messages.push({
+        role: "bot",
+        text: data.reply || "我先按你的描述挑了几杯，看看合不合口味。",
+        recipes: data.recipes || [],
+        actions: data.actions || []
+      });
+      applyAIActions(data.actions || []);
+      renderAILog();
+    });
+  }
+
   /* ---------------- 事件绑定 ---------------- */
 
   document.addEventListener("click", function (e) {
@@ -2136,7 +2432,43 @@
       case "send-email": sendEmailCode(); break;
       case "close-modal": closeModal(); break;
       case "logout": Store.logout(); toast("已退出登录"); render(); break;
+      case "ai-open": initAIDock(); aiToggle(true); break;
+      case "ai-close": aiToggle(false); break;
+      case "ai-quick": sendAIMessage(value); break;
+      case "ai-goto": aiToggle(false); go("#/" + value); break;
       case "open-recipe": go("#/recipe/" + id); break;
+      case "variant-new": openVariantModal(id); break;
+      case "variant-like": {
+        var vl = Store.toggleRecipeVariantLike(id, el.getAttribute("data-vid"));
+        if (!vl.ok) { toast(vl.msg); if (!Store.currentUser()) authModal("login"); return; }
+        render();
+        break;
+      }
+      case "variant-delete": {
+        if (!confirm("确定删除这个做法吗？")) break;
+        var vd = Store.deleteRecipeVariant(id, el.getAttribute("data-vid"));
+        if (!vd.ok) { toast(vd.msg); return; }
+        toast("已删除");
+        render();
+        break;
+      }
+      case "variant-toggle-ing": {
+        if (!variantDraft) break;
+        var vidx = variantDraft.ingredients.map(function (x) { return x.id; }).indexOf(id);
+        if (vidx >= 0) variantDraft.ingredients.splice(vidx, 1);
+        else variantDraft.ingredients.push({ id: id, amount: "", optional: false });
+        renderVariantPicker();
+        renderVariantSelected();
+        break;
+      }
+      case "variant-remove-ing": {
+        if (!variantDraft) break;
+        var ridx = Number(el.getAttribute("data-idx"));
+        if (ridx >= 0) variantDraft.ingredients.splice(ridx, 1);
+        renderVariantPicker();
+        renderVariantSelected();
+        break;
+      }
       case "random": closeModal(); randomPick(); break;
       case "toggle-fav": {
         var res = Store.toggleFavorite(id);
@@ -2484,7 +2816,13 @@
     e.preventDefault();
 
     if (form.id === "authForm") return submitAuth(form, authMode);
+    if (form.id === "aiForm") {
+      var aiFd = new FormData(form);
+      sendAIMessage(aiFd.get("message"));
+      return;
+    }
     if (form.id === "recipeForm") return submitRecipe(form);
+    if (form.id === "variantForm") return submitVariant(form);
     if (form.id === "commentForm" || form.getAttribute("data-parent")) return submitComment(form);
 
     if (form.id === "addIngForm") {
@@ -2620,6 +2958,9 @@
     } else if (t.id === "ingSearch") {
       draft.search = t.value;
       renderIngredientPicker();
+    } else if (t.id === "variantIngSearch") {
+      if (variantDraft) variantDraft.search = t.value;
+      renderVariantPicker();
     } else if (t.id === "draftImgUrl") {
       var pv = document.getElementById("draftImgPreview");
       if (pv) pv.innerHTML = t.value.trim() ? '<img src="' + esc(t.value.trim()) + '" alt="" onerror="this.parentNode.innerHTML=\'<span class=&quot;mute-text&quot;>图片链接打不开</span>\'">' : '<span class="mute-text">还没有图片</span>';
@@ -2697,6 +3038,7 @@
   Store.init();
   if (!location.hash) location.hash = "#/home";
   render();
+  initAIDock();
 
   /* 云端模式：配了云函数地址就先拉一次数据，拉完重新渲染 */
   var cloudCfg = window.COCKTAIL_CLOUD || {};

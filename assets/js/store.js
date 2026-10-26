@@ -322,6 +322,8 @@
     r.videoName = r.videoName || "";
     r.ingredients = r.ingredients || [];
     r.steps = r.steps || [];
+    // 同一杯酒的其他做法（配方差分），老数据没有就给空数组
+    if (!Array.isArray(r.variants)) r.variants = [];
     // 标签：老数据没有 tags 字段时，从种子表里补
     if (!Array.isArray(r.tags)) r.tags = (window.SEED.tags || {})[r.id] || [];
     /* 配图规则：数据库里的图优先（管理员在后台换的图存在那儿），
@@ -971,6 +973,99 @@
     persist();
     cloudSync("updateRecipeFields", { id: id, patch: { image: r.image } });
     return { ok: true, recipe: r };
+  }
+
+  /* ---------------- 同一杯酒的其他做法 ---------------- */
+
+  /** 取某杯酒的所有做法，带上「我点过赞没」「是不是我发的」 */
+  function getVariants(recipeId) {
+    var r = getRecipe(recipeId);
+    if (!r || !Array.isArray(r.variants)) return [];
+    var me = currentUser();
+    return r.variants.map(function (v) {
+      var likes = Array.isArray(v.likes) ? v.likes : [];
+      return Object.assign({}, v, {
+        likes: likes,
+        likeCount: likes.length,
+        liked: !!(me && likes.indexOf(me.id) >= 0),
+        mine: !!(me && v.authorId === me.id)
+      });
+    }).sort(function (a, b) {
+      if (b.likeCount !== a.likeCount) return b.likeCount - a.likeCount;
+      return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+    });
+  }
+
+  function variantCount(recipeId) {
+    var r = getRecipe(recipeId);
+    return r && Array.isArray(r.variants) ? r.variants.length : 0;
+  }
+
+  /** 分享自己的做法：名称 + 说明 + 材料 + 步骤 */
+  function addRecipeVariant(recipeId, data) {
+    data = data || {};
+    var me = currentUser();
+    if (!me) return { ok: false, msg: "登录后才能分享自己的做法" };
+    var r = getRecipe(recipeId);
+    if (!r) return { ok: false, msg: "配方不存在" };
+    var name = String(data.name || "").trim();
+    if (name.length < 2 || name.length > 30) return { ok: false, msg: "做法名称需要 2-30 个字" };
+    var items = Array.isArray(data.items) ? data.items.filter(function (x) { return x && x.id; }).slice(0, 20) : [];
+    var steps = Array.isArray(data.steps)
+      ? data.steps.map(function (s) { return String(s).trim(); }).filter(Boolean).slice(0, 15)
+      : [];
+    if (!items.length) return { ok: false, msg: "至少保留一种材料" };
+    if (!steps.length) return { ok: false, msg: "至少写一步做法" };
+
+    var v = {
+      id: newId("var"),
+      name: name,
+      note: String(data.note || "").trim().slice(0, 120),
+      authorId: me.id,
+      author: me.nickname || me.username,
+      items: items,
+      steps: steps,
+      likes: [],
+      createdAt: nowISO()
+    };
+    r.variants = Array.isArray(r.variants) ? r.variants : [];
+    r.variants.push(v);
+    persist();
+    cloudSync("addRecipeVariant", {
+      recipeId: recipeId, id: v.id, name: v.name, note: v.note, items: v.items, steps: v.steps
+    }, function (data2) {
+      if (data2 && Array.isArray(data2.variants)) { r.variants = data2.variants; persist(); }
+    });
+    return { ok: true, variant: v };
+  }
+
+  function deleteRecipeVariant(recipeId, variantId) {
+    var me = currentUser();
+    if (!me) return { ok: false, msg: "请先登录" };
+    var r = getRecipe(recipeId);
+    if (!r || !Array.isArray(r.variants)) return { ok: false, msg: "配方不存在" };
+    var v = r.variants.filter(function (x) { return x.id === variantId; })[0];
+    if (!v) return { ok: false, msg: "这个做法不存在" };
+    if (me.role !== "admin" && v.authorId !== me.id) return { ok: false, msg: "只能删除自己分享的做法" };
+    r.variants = r.variants.filter(function (x) { return x.id !== variantId; });
+    persist();
+    cloudSync("deleteRecipeVariant", { recipeId: recipeId, variantId: variantId });
+    return { ok: true };
+  }
+
+  function toggleRecipeVariantLike(recipeId, variantId) {
+    var me = currentUser();
+    if (!me) return { ok: false, msg: "登录后才能点赞" };
+    var r = getRecipe(recipeId);
+    if (!r || !Array.isArray(r.variants)) return { ok: false, msg: "配方不存在" };
+    var v = r.variants.filter(function (x) { return x.id === variantId; })[0];
+    if (!v) return { ok: false, msg: "这个做法不存在" };
+    v.likes = Array.isArray(v.likes) ? v.likes : [];
+    var idx = v.likes.indexOf(me.id);
+    if (idx >= 0) v.likes.splice(idx, 1); else v.likes.push(me.id);
+    persist();
+    cloudSync("toggleRecipeVariantLike", { recipeId: recipeId, variantId: variantId });
+    return { ok: true, liked: idx < 0, count: v.likes.length };
   }
 
   /* ---------------- 收藏 ---------------- */
@@ -2082,6 +2177,132 @@
     persist();
   }
 
+  /* ---------------- AI 调酒助手 ----------------
+     云端模式走云函数（可接混元，没配 Key 就用规则）；
+     本地模式也有一套规则，保证离线演示能用。 */
+
+  var AI_MOODS = [
+    [/聚会|派对|庆祝|朋友|热闹|生日/, ["派对", "长饮"]],
+    [/放松|下班|一个人|安静|独饮|累|疲惫/, ["微醺", "独饮"]],
+    [/热|夏天|解暑|清爽|冰凉|冰的/, ["夏日", "清爽"]],
+    [/冷|冬天|暖和|取暖/, ["冬日", "浓郁"]],
+    [/难过|失恋|苦闷|烦躁|心情不好/, ["苦", "烈"]],
+    [/想醉|上头|烈一点|度数高|来点猛的/, ["烈"]],
+    [/低度|不醉|微醺|轻一点|淡一点/, ["微醺"]],
+    [/气泡|汽水|有气|带气/, ["气泡"]],
+    [/果味|水果|果香/, ["果香"]],
+    [/奶|绵密|丝滑/, ["奶香", "绵密"]],
+    [/咖啡/, ["咖啡"]],
+    [/甜/, ["甜"]],
+    [/酸/, ["酸"]],
+    [/苦/, ["苦"]]
+  ];
+
+  function detectLocalIngredients(message) {
+    var m = String(message || "").toLowerCase();
+    var hits = [];
+    state.ingredients.forEach(function (i) {
+      var raw = [i.name, i.aka, i.alias].filter(Boolean).join("|");
+      // 括号里通常是别名，例如「金酒（琴酒）」，拆开后「金酒」也能被搜到
+      var parts = raw.split(/[|/、,，（）()]/);
+      for (var k = 0; k < parts.length; k++) {
+        var p = String(parts[k]).trim();
+        if (p.length < 2) continue;
+        var hit;
+        if (/^[a-z0-9 .'-]+$/i.test(p)) {
+          hit = new RegExp("\\b" + p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i").test(message);
+        } else {
+          hit = m.indexOf(p.toLowerCase()) >= 0;
+        }
+        if (hit) { hits.push(i.id); return; }
+      }
+    });
+    return hits.filter(function (x, idx, arr) { return arr.indexOf(x) === idx; });
+  }
+
+  /** 展示用的短名字：「金酒（琴酒）」→「金酒」 */
+  function shortIngredientName(id) {
+    var i = getIngredient(id);
+    if (!i) return ingredientName(id);
+    return String(i.name || "").replace(/[（(].*?[）)]/g, "").trim() || i.name;
+  }
+
+  function localAI(message) {
+    var text = String(message || "");
+    var ingIds = detectLocalIngredients(text);
+    var tags = [];
+    allTags().forEach(function (t) {
+      if (t && text.indexOf(t) >= 0 && tags.indexOf(t) < 0) tags.push(t);
+    });
+    AI_MOODS.forEach(function (r) {
+      if (r[0].test(text)) r[1].forEach(function (t) { if (tags.indexOf(t) < 0) tags.push(t); });
+    });
+    tags = tags.slice(0, 6);
+
+    var picked = [];
+    if (ingIds.length) {
+      var bucket = matchRecipes(ingIds, { maxMissing: 3 }).all;
+      var wanted = tags;
+      bucket.sort(function (a, b) {
+        function score(x) {
+          var tagHit = (x.recipe.tags || []).filter(function (t) { return wanted.indexOf(t) >= 0; }).length;
+          return tagHit * 12 + (x.haveCount || 0) * 4 - (x.missing || []).length * 5 + (x.recipe.views || 0) * 0.01;
+        }
+        return score(b) - score(a);
+      });
+      picked = bucket.slice(0, 3).map(function (x) { return x.recipe; });
+    }
+    if (!picked.length && tags.length) picked = searchRecipes({ tags: tags, tagMode: "any", sort: "hot" }).slice(0, 3);
+    if (!picked.length) picked = visibleRecipes().filter(function (r) { return r.status === "approved"; }).slice(0, 3);
+
+    var recipes = picked.map(function (r) {
+      return {
+        id: r.id, name: r.name, en: r.en || "", emoji: r.emoji || "🍹",
+        image: r.image || "", desc: r.desc || "", tags: (r.tags || []).slice(0, 4)
+      };
+    });
+
+    var actions = [];
+    if (ingIds.length) {
+      actions.push({
+        type: "selectIngredients", ids: ingIds,
+        names: ingIds.map(shortIngredientName).slice(0, 10)
+      });
+    }
+    if (tags.length) actions.push({ type: "setTags", tags: tags, mode: "any" });
+
+    var reply;
+    if (ingIds.length) {
+      var names = ingIds.slice(0, 4).map(shortIngredientName);
+      reply = "看到你有" + names.join("、") + (ingIds.length > 4 ? " 等材料" : "") +
+        "，我挑了 " + recipes.length + " 杯比较合适的。" +
+        (tags.length ? "顺便按「" + tags.slice(0, 3).join("、") + "」再帮你筛了一下。" : "");
+    } else if (tags.length) {
+      reply = "听起来你想喝「" + tags.slice(0, 3).join("、") + "」方向，我挑了 " + recipes.length +
+        " 杯，已经在「想喝啥」里帮你选好标签了。";
+    } else {
+      reply = "先给你挑了 3 杯口碑不错的。告诉我你手头有什么材料，或者想喝酸/甜/烈一点，我能选得更准。";
+    }
+
+    return { ok: true, data: { reply: reply, actions: actions, recipes: recipes, source: "local" } };
+  }
+
+  /**
+   * 问 AI。云端模式走 aiChat 云函数；本地模式用规则引擎。
+   * 回调参数：{ ok, data: { reply, actions, recipes } } 或 { ok:false, msg }
+   */
+  function askAI(message, cb) {
+    if (cloudOn()) {
+      cloudCall("aiChat", { message: String(message || "") }).then(function (res) {
+        if (cb) cb(res.ok ? { ok: true, data: res.data } : { ok: false, msg: res.msg });
+      });
+      return { ok: true, pending: true };
+    }
+    var res = localAI(message);
+    if (cb) setTimeout(function () { cb(res); }, 220);
+    return res;
+  }
+
   /* ---------------- 对外接口 ---------------- */
 
   window.Store = {
@@ -2137,6 +2358,12 @@
     addView: addView,
     setRecipeVideo: setRecipeVideo,
     setRecipeImage: setRecipeImage,
+    getVariants: getVariants,
+    variantCount: variantCount,
+    addRecipeVariant: addRecipeVariant,
+    deleteRecipeVariant: deleteRecipeVariant,
+    toggleRecipeVariantLike: toggleRecipeVariantLike,
+    askAI: askAI,
 
     // 收藏 / 我的材料
     isFavorite: isFavorite,

@@ -330,6 +330,7 @@ function rowRecipe(r) {
     id: r.id, name: r.name, en: r.en, alias: r.alias, type: r.type, emoji: r.emoji, color: r.color,
     glass: r.glass, abv: r.abv, desc: r.desc, image: r.image, video: r.video, videoName: r.video_name,
     tags: r.tags || [], ingredients: r.items || [], steps: r.steps || [],
+    variants: r.variants || [],
     py: r.py, initial: r.initial, authorId: r.author_id, author: r.author,
     status: r.status, views: r.views, createdAt: r.created_at
   };
@@ -711,6 +712,327 @@ async function deleteRecipe(payload, token, me) {
   return ok({ deleted: true });
 }
 
+/* ---------------- 同一杯酒的其他做法（配方差分） ---------------- */
+
+/** 用户给某杯酒补充一个自己的做法 */
+async function addRecipeVariant(payload, token, me) {
+  if (!me) return fail("登录后才能分享自己的做法");
+  const rec = await dbSelectOne("recipes", [{ col: "id", val: payload.recipeId }]);
+  if (!rec) return fail("配方不存在");
+  const name = String(payload.name || "").trim();
+  if (name.length < 2 || name.length > 30) return fail("做法名称需要 2-30 个字");
+  const note = String(payload.note || "").trim().slice(0, 120);
+  const items = Array.isArray(payload.items) ? payload.items.filter(function (x) { return x && x.id; }).slice(0, 20) : [];
+  const steps = Array.isArray(payload.steps)
+    ? payload.steps.map(function (s) { return String(s).trim(); }).filter(Boolean).slice(0, 15)
+    : [];
+  if (!items.length) return fail("至少保留一种材料");
+  if (!steps.length) return fail("至少写一步做法");
+  const list = Array.isArray(rec.variants) ? rec.variants.slice() : [];
+  if (list.length >= 20) return fail("这杯酒的做法已经够多了");
+  // 前端会先本地生成一个 id（乐观更新），这里沿用同一个，刷新前后才对得上
+  const wantedId = String(payload.id || "").trim();
+  const variant = {
+    id: /^var-[a-z0-9]+$/i.test(wantedId) ? wantedId : newId("var"),
+    name: name,
+    note: note,
+    authorId: me.id,
+    author: me.nickname || me.username,
+    items: items,
+    steps: steps,
+    likes: [],
+    createdAt: new Date().toISOString()
+  };
+  list.push(variant);
+  await dbUpdate("recipes", rec.id, { variants: list });
+  return ok({ variant: variant, variants: list });
+}
+
+/** 删掉自己（或管理员删任何）的做法 */
+async function deleteRecipeVariant(payload, token, me) {
+  if (!me) return fail("请先登录");
+  const rec = await dbSelectOne("recipes", [{ col: "id", val: payload.recipeId }]);
+  if (!rec) return fail("配方不存在");
+  const list = Array.isArray(rec.variants) ? rec.variants.slice() : [];
+  const v = list.filter(function (x) { return x.id === payload.variantId; })[0];
+  if (!v) return fail("这个做法不存在");
+  if (me.role !== "admin" && v.authorId !== me.id) return fail("只能删除自己分享的做法");
+  const next = list.filter(function (x) { return x.id !== payload.variantId; });
+  await dbUpdate("recipes", rec.id, { variants: next });
+  return ok({ deleted: true, variants: next });
+}
+
+/** 给某个做法点个赞 */
+async function toggleRecipeVariantLike(payload, token, me) {
+  if (!me) return fail("登录后才能点赞");
+  const rec = await dbSelectOne("recipes", [{ col: "id", val: payload.recipeId }]);
+  if (!rec) return fail("配方不存在");
+  const list = Array.isArray(rec.variants) ? rec.variants.slice() : [];
+  const v = list.filter(function (x) { return x.id === payload.variantId; })[0];
+  if (!v) return fail("这个做法不存在");
+  const likes = Array.isArray(v.likes) ? v.likes.slice() : [];
+  const idx = likes.indexOf(me.id);
+  if (idx >= 0) likes.splice(idx, 1); else likes.push(me.id);
+  v.likes = likes;
+  await dbUpdate("recipes", rec.id, { variants: list });
+  return ok({ liked: idx < 0, count: likes.length, variants: list });
+}
+
+/* ---------------- AI 调酒助手 ----------------
+   两种模式：
+     1. 配了 HUNYUAN_API_KEY → 调腾讯混元（轻量模型就够）
+     2. 没配 → 用本地的关键词规则识别材料、口味和心情，照样能推荐
+   返回的 actions 会告诉前端「帮用户勾材料 / 选标签」，前端执行后就是真的操作了界面。 */
+
+let AI_CACHE = { at: 0, ingredients: [], recipes: [] };
+
+async function aiCatalog() {
+  if (AI_CACHE.at && Date.now() - AI_CACHE.at < 5 * 60 * 1000) return AI_CACHE;
+  const [ingredients, recipes] = await Promise.all([
+    dbSelect("ingredients", [], { limit: 5000 }),
+    dbSelect("recipes", [], { order: "created_at", asc: false, limit: 5000 })
+  ]);
+  AI_CACHE = {
+    at: Date.now(),
+    ingredients: ingredients,
+    recipes: recipes.filter(function (r) { return r.status === "approved"; })
+  };
+  return AI_CACHE;
+}
+
+const MOOD_RULES = [
+  [/聚会|派对|庆祝|朋友|热闹|生日/, ["派对", "长饮"]],
+  [/放松|下班|一个人|安静|独饮|累|疲惫/, ["微醺", "独饮"]],
+  [/热|夏天|解暑|清爽|冰凉|冰的/, ["夏日", "清爽"]],
+  [/冷|冬天|暖和|取暖/, ["冬日", "浓郁"]],
+  [/难过|失恋|苦闷|烦躁|心情不好/, ["苦", "烈"]],
+  [/想醉|上头|烈一点|度数高|来点猛的/, ["烈"]],
+  [/低度|不醉|微醺|轻一点|淡一点/, ["微醺"]],
+  [/气泡|汽水|有气|带气/, ["气泡"]],
+  [/果味|水果|果香/, ["果香"]],
+  [/奶|绵密|丝滑/, ["奶香", "绵密"]],
+  [/咖啡/, ["咖啡"]],
+  [/甜/, ["甜"]],
+  [/酸/, ["酸"]],
+  [/苦/, ["苦"]]
+];
+
+function collectTags(catalog) {
+  const seen = {};
+  catalog.recipes.forEach(function (r) {
+    (r.tags || []).forEach(function (t) { seen[t] = (seen[t] || 0) + 1; });
+  });
+  return Object.keys(seen).sort(function (a, b) { return seen[b] - seen[a]; });
+}
+
+function uniqueList(list) {
+  const out = [];
+  list.forEach(function (x) { if (out.indexOf(x) < 0) out.push(x); });
+  return out;
+}
+
+function escapeRe(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** 展示用的短名字：「金酒（琴酒）」→「金酒」 */
+function shortIngName(i) {
+  const name = String((i && i.name) || "");
+  return name.replace(/[（(].*?[）)]/g, "").trim() || name;
+}
+
+/** 从一句话里认出用户提到的材料（支持中文名、别名、英文名） */
+function detectIngredients(message, ingredients) {
+  const m = String(message).toLowerCase();
+  const hits = [];
+  ingredients.forEach(function (i) {
+    const candidates = [];
+    [i.name, i.aka, i.alias].forEach(function (raw) {
+      if (!raw) return;
+      // 括号里通常是别名，例如「金酒（琴酒）」，拆开后「金酒」也能被搜到
+      String(raw).split(/[|/、,，（）()]/).forEach(function (part) {
+        const p = part.trim();
+        if (p.length >= 2) candidates.push(p);
+      });
+    });
+    for (let k = 0; k < candidates.length; k++) {
+      const p = candidates[k];
+      let matched = false;
+      if (/^[a-z0-9 .'-]+$/i.test(p)) {
+        matched = new RegExp("\\b" + escapeRe(p) + "\\b", "i").test(message);
+      } else {
+        matched = m.indexOf(p.toLowerCase()) >= 0;
+      }
+      if (matched) { hits.push(i.id); return; }
+    }
+  });
+  return uniqueList(hits);
+}
+
+function detectTags(message, catalog) {
+  const m = String(message);
+  const all = collectTags(catalog);
+  const tags = [];
+  all.forEach(function (t) {
+    if (t && t.length >= 1 && m.indexOf(t) >= 0) tags.push(t);
+  });
+  MOOD_RULES.forEach(function (r) {
+    if (r[0].test(m)) r[1].forEach(function (t) { if (tags.indexOf(t) < 0) tags.push(t); });
+  });
+  return uniqueList(tags).slice(0, 6);
+}
+
+/** 按「材料差几种 + 标签命中 + 热度」给配方打分 */
+function recommendRecipes(catalog, ownedIds, wantedTags, message) {
+  const owned = {};
+  ownedIds.forEach(function (id) { owned[id] = true; });
+  const ingMap = {};
+  catalog.ingredients.forEach(function (i) { ingMap[i.id] = i; });
+  const text = String(message || "").toLowerCase();
+
+  const scored = catalog.recipes.map(function (r) {
+    const items = Array.isArray(r.items) ? r.items : [];
+    let missing = 0;
+    let have = 0;
+    items.forEach(function (x) {
+      const ing = ingMap[x.id];
+      if (!ing || ing.is_basic) return;
+      if (owned[x.id]) have++;
+      else if (!x.optional) missing++;
+    });
+    const tagHit = (r.tags || []).filter(function (t) { return wantedTags.indexOf(t) >= 0; }).length;
+    const nameHit = text && ((r.name && text.indexOf(String(r.name).toLowerCase()) >= 0) ||
+      (r.en && text.indexOf(String(r.en).toLowerCase()) >= 0)) ? 8 : 0;
+    // 口味标签是用户最直接的表达，权重给高一些；材料缺口只做温和扣分
+    const score = tagHit * 12 + nameHit + have * 4 - missing * 5 + Math.min(Number(r.views) || 0, 50) * 0.01;
+    return { recipe: r, score: score, missing: missing, tagHit: tagHit };
+  });
+  scored.sort(function (a, b) { return b.score - a.score; });
+  return scored.filter(function (x) { return x.score > -40; }).slice(0, 12);
+}
+
+/** 可选的混元调用；失败就返回 null，交给规则引擎兜底 */
+async function callHunyuan(message, catalog) {
+  const key = String(process.env.HUNYUAN_API_KEY || "").trim();
+  if (!key) return null;
+  const model = String(process.env.HUNYUAN_MODEL || "hunyuan-lite").trim();
+  const compact = catalog.recipes.slice(0, 220).map(function (r) {
+    return { id: r.id, name: r.name, tags: (r.tags || []).slice(0, 6), glass: r.glass, abv: r.abv };
+  });
+  const system = [
+    "你是「鸡尾酒法典」网站的调酒助手，帮用户根据口味、心情和手头材料选酒。",
+    "只输出一个 JSON 对象，不要 Markdown、不要解释。",
+    '格式：{"reply":"中文口语化回复，80字以内","ingredientIds":["材料id"],"tags":["口味标签"],"recipeIds":["配方id，最多3个"]}',
+    "ingredientIds 必须来自给定的材料 id；recipeIds 必须来自给定的配方 id；没有就返回空数组。"
+  ].join("\n");
+  const user = "可选材料：" + catalog.ingredients.map(function (i) { return i.id + "=" + i.name; }).join("，") +
+    "\n可选配方：" + JSON.stringify(compact) +
+    "\n用户说：" + message;
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(function () { ctrl.abort(); }, 12000);
+  try {
+    const res = await fetch("https://api.hunyuan.cloud.tencent.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: "system", content: system }, { role: "user", content: user }],
+        temperature: 0.6,
+        max_tokens: 700
+      }),
+      signal: ctrl.signal
+    });
+    if (!res.ok) {
+      console.error("[ai] 混元返回 " + res.status);
+      return null;
+    }
+    const j = await res.json();
+    const content = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+    const m = String(content || "").match(/\{[\s\S]*\}/);
+    return m ? JSON.parse(m[0]) : null;
+  } catch (e) {
+    console.error("[ai] 混元调用失败：" + e.message);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function aiChat(payload) {
+  const message = String(payload.message || "").trim().slice(0, 400);
+  if (!message) return fail("先说一句你的口味，或者手头有什么材料");
+  const catalog = await aiCatalog();
+  const ingMap = {};
+  catalog.ingredients.forEach(function (i) { ingMap[i.id] = i; });
+
+  let ingredientIds = detectIngredients(message, catalog.ingredients);
+  let tags = detectTags(message, catalog);
+
+  const modelOut = await callHunyuan(message, catalog);
+  if (modelOut) {
+    if (Array.isArray(modelOut.ingredientIds)) {
+      const valid = modelOut.ingredientIds.filter(function (id) { return !!ingMap[id]; });
+      if (valid.length) ingredientIds = uniqueList(valid).slice(0, 12);
+    }
+    if (Array.isArray(modelOut.tags)) {
+      const all = collectTags(catalog);
+      const valid = modelOut.tags.filter(function (t) { return all.indexOf(t) >= 0; });
+      if (valid.length) tags = uniqueList(valid).slice(0, 6);
+    }
+  }
+
+  let picked = [];
+  if (modelOut && Array.isArray(modelOut.recipeIds) && modelOut.recipeIds.length) {
+    picked = modelOut.recipeIds.map(function (id) {
+      return catalog.recipes.filter(function (r) { return r.id === id; })[0];
+    }).filter(Boolean).slice(0, 3);
+  }
+  if (!picked.length) {
+    picked = recommendRecipes(catalog, ingredientIds, tags, message).slice(0, 3).map(function (x) { return x.recipe; });
+  }
+
+  const recipes = picked.map(function (r) {
+    return {
+      id: r.id, name: r.name, en: r.en || "", emoji: r.emoji || "🍹",
+      image: r.image || "", desc: r.desc || "",
+      tags: (r.tags || []).slice(0, 4)
+    };
+  });
+
+  const actions = [];
+  if (ingredientIds.length) {
+    actions.push({
+      type: "selectIngredients",
+      ids: ingredientIds,
+      names: ingredientIds.map(function (id) { return shortIngName(ingMap[id]); }).slice(0, 10)
+    });
+  }
+  if (tags.length) actions.push({ type: "setTags", tags: tags, mode: "any" });
+
+  let reply = "";
+  if (modelOut && typeof modelOut.reply === "string" && modelOut.reply.trim()) {
+    reply = modelOut.reply.trim().slice(0, 200);
+  } else if (ingredientIds.length) {
+    const names = ingredientIds.slice(0, 4).map(function (id) { return shortIngName(ingMap[id]); });
+    reply = "看到你有" + names.join("、") + (ingredientIds.length > 4 ? " 等材料" : "") +
+      "，我挑了 " + recipes.length + " 杯比较合适的。" + (tags.length ? "顺便按「" + tags.slice(0, 3).join("、") + "」再帮你筛了一下。" : "");
+  } else if (tags.length) {
+    reply = "听起来你想喝「" + tags.slice(0, 3).join("、") + "」方向，我挑了 " + recipes.length + " 杯，已经在「想喝啥」里帮你选好标签了。";
+  } else if (/\d+\s*(ml|毫升)/i.test(message)) {
+    reply = "我按你说的材料给你配了几杯，点开看看比例合不合适。";
+  } else {
+    reply = "先给你挑了 3 杯口碑不错的。告诉我你手头有什么材料，或者想喝酸/甜/烈一点，我能选得更准。";
+  }
+
+  return ok({
+    reply: reply,
+    actions: actions,
+    recipes: recipes,
+    source: modelOut ? "hunyuan" : "rule"
+  });
+}
+
 async function addComment(payload, token, me) {
   if (!me) return fail("请先登录");
   const content = String(payload.content || "").trim();
@@ -1002,6 +1324,10 @@ const HANDLERS = {
   deletePost: deletePost,
   saveRecipe: saveRecipe,
   deleteRecipe: deleteRecipe,
+  addRecipeVariant: addRecipeVariant,
+  deleteRecipeVariant: deleteRecipeVariant,
+  toggleRecipeVariantLike: toggleRecipeVariantLike,
+  aiChat: aiChat,
   updateRecipeFields: updateRecipeFields,
   saveIngredient: saveIngredient,
   deleteIngredient: deleteIngredient,
